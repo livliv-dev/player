@@ -32,7 +32,7 @@
 ## 在自己的页面里用
 
 ```js
-import { Player } from '@livliv/player'
+import { Player } from '@livliv-dev/player'
 
 const player = new Player(document.querySelector('canvas'))
 await player.load('characters/k01/')   // 含 model.json 和 textures/ 的文件夹，或一个 .livliv 文件
@@ -45,8 +45,8 @@ player.params.mouthOpen = 0.6          // 0..1
 口型同步和面捕：
 
 ```js
-import { createSpeech } from '@livliv/player/voice'
-import { startFaceTracking } from '@livliv/player/tracking'   // 需要 @mediapipe/tasks-vision
+import { createSpeech } from '@livliv-dev/player/voice'
+import { startFaceTracking } from '@livliv-dev/player/tracking'   // 需要 @mediapipe/tasks-vision
 
 const speech = createSpeech(player)
 button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
@@ -57,9 +57,9 @@ await startFaceTracking(player)
 VRM 和 PNGTuber 用同一套接口：
 
 ```js
-import { BodyPlayer } from '@livliv/player/body'
-import { VrmBody } from '@livliv/player/vrm'    // 需要 three 和 @pixiv/three-vrm
-import { PngBody } from '@livliv/player/png'
+import { BodyPlayer } from '@livliv-dev/player/body'
+import { VrmBody } from '@livliv-dev/player/vrm'    // 需要 three 和 @pixiv/three-vrm
+import { PngBody } from '@livliv-dev/player/png'
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')

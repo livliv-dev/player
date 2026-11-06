@@ -1,9 +1,11 @@
 {
-  "name": "@livliv/player",
+  "name": "@livliv-dev/player",
   "version": "0.3.0",
   "description": "LivLiv Player: a lightweight 2.5D character player for the web, with lip sync and webcam face tracking. Plays LivLiv, VRM and PNGTuber characters; WebGL2, no dependencies in the core.",
-  "private": true,
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://livliv.ai/developers",
   "repository": {
     "type": "git",

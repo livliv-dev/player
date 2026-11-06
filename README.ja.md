@@ -30,7 +30,7 @@
 ## 自分のページで使う
 
 ```js
-import { Player } from '@livliv/player'
+import { Player } from '@livliv-dev/player'
 
 const player = new Player(document.querySelector('canvas'))
 await player.load('characters/k01/')   // model.json と textures/ のあるフォルダ、または .livliv ファイル
@@ -43,8 +43,8 @@ player.params.mouthOpen = 0.6          // 0..1
 リップシンクとフェイストラッキング：
 
 ```js
-import { createSpeech } from '@livliv/player/voice'
-import { startFaceTracking } from '@livliv/player/tracking'   // @mediapipe/tasks-vision が必要
+import { createSpeech } from '@livliv-dev/player/voice'
+import { startFaceTracking } from '@livliv-dev/player/tracking'   // @mediapipe/tasks-vision が必要
 
 const speech = createSpeech(player)
 button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
@@ -55,9 +55,9 @@ await startFaceTracking(player)
 VRM や PNGTuber も同じ API で：
 
 ```js
-import { BodyPlayer } from '@livliv/player/body'
-import { VrmBody } from '@livliv/player/vrm'    // three と @pixiv/three-vrm が必要
-import { PngBody } from '@livliv/player/png'
+import { BodyPlayer } from '@livliv-dev/player/body'
+import { VrmBody } from '@livliv-dev/player/vrm'    // three と @pixiv/three-vrm が必要
+import { PngBody } from '@livliv-dev/player/png'
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')

@@ -17,7 +17,7 @@ The interface settled before the package goes on npm: these change what a page w
 ### New
 
 - `load(source, { signal, onProgress, poster })`: call a load off, follow how far it has come, show a picture until the first frame.
-- `LivLivError`, with a `code` for each reason, from `@livliv/player` and `@livliv/player/body`.
+- `LivLivError`, with a `code` for each reason, from `@livliv-dev/player` and `@livliv-dev/player/body`.
 - `player.contextLost` and `player.onContextLost`: the page hears when the WebGL context is gone. See [API.md](API.md#when-the-context-is-lost).
 - `dispose({ release: true })`: gives the WebGL context up, for a canvas leaving the page.
 - `player.setAway()`, `player.poke()`, `player.canvasToModel()`.
