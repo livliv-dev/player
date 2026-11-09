@@ -28,6 +28,16 @@ export class VowelCue {
     }
     const back = 10 * Math.log10(sum(BACK[0], BACK[1]) / sum(BACK[2], BACK[3]))
     const close = 10 * Math.log10(sum(CLOSE[0], CLOSE[1]) / sum(CLOSE[2], CLOSE[3]))
+    return this.update(back, close, level, dt)
+  }
+
+  /** one frame from band ratios already computed elsewhere (the live voice worklet): `back` and `close` in dB, exactly
+   *  what `push` would have measured from the spectrum */
+  pushBands(back: number, close: number, level: number, dt: number): number {
+    return this.update(back, close, level, dt)
+  }
+
+  private update(back: number, close: number, level: number, dt: number): number {
     let target = 0
     if (level > 0.15) {
       if (level > 0.3) {  // the voice's balance: settles within a couple of seconds of speech, then drifts slowly
