@@ -100,7 +100,6 @@ export class VoiceMeter {
   private floor = 0.004 // noise floor (RMS), follows quiet moments quickly and rises slowly
   private peak = 0.05   // recent speaking loudness, decays over a few seconds
   private last = 0
-  private node?: AudioWorkletNode
   private rms = 0
   private back = NaN
   private close = NaN
@@ -127,7 +126,7 @@ export class VoiceMeter {
     const ctx = this.ctx = r ? r.ctx : new AudioContext()
     const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }))
     try { await ctx.audioWorklet.addModule(url) } finally { URL.revokeObjectURL(url) }
-    const node = this.node = new AudioWorkletNode(ctx, 'livliv-voice-meter')
+    const node = new AudioWorkletNode(ctx, 'livliv-voice-meter')
     node.port.onmessage = (e: MessageEvent<{ rms: number; back: number; close: number }>) => {
       this.rms = e.data.rms; this.back = e.data.back; this.close = e.data.close
     }
