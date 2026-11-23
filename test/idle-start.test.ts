@@ -80,3 +80,25 @@ it('an idle motion never turned off never eases in: the frames are as before', a
   assert.equal(resume.mock.callCount(), 1)
   p.dispose()
 })
+
+it('values of the page that are no numbers do not stay in the idle motion it eases back from', async (t) => {
+  for (const bad of [NaN, '5', Infinity]) {
+    const { frame } = page(t)
+    const p = new BodyPlayer(canvas(), body(), { autoplay: false, followPointer: false })
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    const seen: number[] = [], eyes: number[] = []
+    p.onFrame = (pose) => { seen.push(pose.params.angleX); eyes.push(pose.params.eyeBallX) }
+    p.play()
+    Object.assign(p.params, { angleX: bad, eyeBallX: bad })
+    for (let i = 0; i < 60; i++) frame()
+    p.idle = false
+    for (let i = 0; i < 10; i++) frame()
+    p.idle = true
+    seen.length = 0; eyes.length = 0
+    for (let i = 0; i < 60 * 20; i++) frame()
+    const distinct = (a: number[]) => new Set(a.map((v) => v.toFixed(3))).size
+    assert.ok(distinct(seen) > 100 && distinct(eyes) > 20, `${String(bad)}: the head took ${distinct(seen)} values, the eyes ${distinct(eyes)}`)
+    assert.ok([...seen, ...eyes].every(Number.isFinite))
+    p.dispose()
+  }
+})

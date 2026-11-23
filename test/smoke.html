@@ -674,8 +674,8 @@
     out.plain = { set: cmp(asLoaded, asSet), moved: cmp(plain, asSet) }
     // keyforms: the keys measured again for turn and nod; and back again
     const k = bare(await json(kf))
-    const turned = { ...k, tuning: { ...k.tuning, turn: 1, nod: 1.3 } }
-    const kLoaded = await draw(kf, turned), kSet = await draw(kf, k, { turn: 1, nod: 1.3 })
+    const turned = { ...k, tuning: { ...k.tuning, turn: 1, nod: 1.3, fringe: 1.6 } }
+    const kLoaded = await draw(kf, turned), kSet = await draw(kf, k, { turn: 1, nod: 1.3, fringe: 1.6 })
     const kOwn = await draw(kf, k)
     out.keyforms = { set: cmp(kLoaded, kSet), moved: cmp(kOwn, kSet), keys: [kLoaded.keys, kSet.keys, kOwn.keys] }
     {
@@ -685,11 +685,11 @@
       let t0 = performance.now()
       p.puppet.update(0); p.puppet.render()
       const frame = performance.now() - t0
-      p.setTuning({ turn: 1, nod: 1.3 })
+      p.setTuning({ turn: 1, nod: 1.3, fringe: 1.6 })
       t0 = performance.now()
       p.resize()
       out.keyforms.ms = [Math.round(frame), Math.round(performance.now() - t0)]
-      p.setTuning({ turn: undefined, nod: null })
+      p.setTuning({ turn: undefined, nod: null, fringe: undefined })
       const shots = []
       for (const P of poses) { Object.assign(p.params, P); p.resize(); shots.push(pixels()); Object.assign(p.params, Object.fromEntries(Object.keys(P).map((q) => [q, 0]))) }
       out.keyforms.back = cmp(kOwn, { shots })

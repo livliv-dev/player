@@ -336,7 +336,7 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
       if (v != null && !(typeof v === 'number' && Number.isFinite(v) && v >= 0)) throw new TypeError(`LivLiv: setTuning: ${k} must be a number from 0 up, not ${String(v)}`)
     }
     const T = this.feel as unknown as Record<string, number | undefined>, own = this.ownFeel as Record<string, number | undefined>
-    const changed: string[] = []
+    const changed: string[] = [], blinkWas = factor(T.blink)
     for (const [k, v] of entries) {
       const before = T[k]
       if (v != null) T[k] = v
@@ -345,6 +345,10 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
       else delete T[k]
       if (!Object.is(before, T[k])) changed.push(k)
     }
+    // the next blink comes as soon as the new rate has it: the wait left is scaled by the change (else a slower rate's long
+    // wait would hold a faster one back for seconds)
+    const lv = this.idler.lv, now = this.clock, rate = (b: number) => Math.max(0.2, b)
+    if (changed.includes('blink') && lv.blinkT < 0 && lv.nextBlink > now) lv.nextBlink = now + (lv.nextBlink - now) * rate(blinkWas) / rate(factor(T.blink))
     if (changed.length) this.retuned(changed)
   }
 
@@ -565,7 +569,11 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     this.idler.shown(P)
     Object.assign(P, this.params)
     this.idler.lv.blinkRate = factor(this.feel.blink)
-    if (this.idle && this.idleGap) { this.idler.resume(P, t); this.idleGap = false }
+    if (this.idle && this.idleGap) {  // from the page's values, kept in range (a NaN would stay in the idle's springs)
+      const from = { ...P }
+      inRange(from)
+      this.idler.resume(from, t); this.idleGap = false
+    }
     else if (!this.idle) this.idleGap = true
     if (this.idle) {
       this.idler.apply(P, t, dt, { busy: A.busy || this.was.mouth > 0.05, tracked: this.was.tracked,

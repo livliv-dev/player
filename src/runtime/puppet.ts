@@ -2188,8 +2188,9 @@ export class Puppet {
     return hit
   }
 
-  /** The keyforms measured again, after the feel settings' turn or nod changed since the model was built: each key's field
-   *  is the clip's pose less the rig's own at that key, and the rig turns by turn and nod. Measured from rest as a load
+  /** The keyforms measured again, after the feel settings' turn, nod or fringe changed since the model was built: each
+   *  key's field is the clip's pose less the rig's own at that key, which turns by turn and nod, its bangs as far off the
+   *  face as fringe has them. Measured from rest as a load
    *  measures them, so the character draws as it would built with these settings; the motion going on is kept (every
    *  field resetPhysics resets is put back). Nothing to do for a model without keyforms */
   retune() {
@@ -2198,7 +2199,7 @@ export class Puppet {
     const runs = this.chainRuns.map((C) => ({ p: C.p.slice(), q: C.q.slice(), disp: C.disp.slice(), beta: C.beta.slice(), started: C.started, moving: C.moving }))
     const chains = Object.values(this.chains).map((c) => c.map((q) => ({ ...q })))
     const keep = { lastHead: { ...this.lastHead }, drive: { ...this.drive }, body: { ...this.body }, bust: { ...this.bust }, fbm: { ...this.fbm },
-      sway: { ...this.sway }, crouch: this.crouch, dip: this.dip, roll: this.pv.roll }
+      sway: { ...this.sway }, crouch: this.crouch, dip: this.dip, kfOff: this.kfOff }
     this.resetPhysics()
     this.keys = []; this.kfPair = null
     for (const L of this.layers) L.kf = undefined
@@ -2206,7 +2207,8 @@ export class Puppet {
     this.chainRuns.forEach((C, i) => { const r = runs[i]; C.p.set(r.p); C.q.set(r.q); C.disp.set(r.disp); C.beta.set(r.beta); C.started = r.started; C.moving = r.moving })
     Object.values(this.chains).forEach((c, i) => c.forEach((q, j) => Object.assign(q, chains[i][j])))
     Object.assign(this, { lastHead: keep.lastHead, drive: keep.drive, body: keep.body, bust: keep.bust, fbm: keep.fbm, sway: keep.sway, crouch: keep.crouch, dip: keep.dip })
-    this.pv.roll = keep.roll
+    this.kfOff = keep.kfOff
+    this.pv.roll = NaN  // the full-body pose's memo holds the measuring pose: worked out again next frame
   }
 
   /** springs back to rest (eval / screenshots must not inherit wind sway) */

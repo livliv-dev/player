@@ -100,11 +100,12 @@ export class Player extends PlayerBase<ModelInfo> {
   protected get feel() { return this.puppet.tuning }
   /** @internal */
   protected get ownFeel() { return { ...defaultTuning(), ...(this.puppet.model?.tuning || {}) } }
-  /** turn or nod changed: the keyforms are measured again, once, before the next frame
+  /** turn, nod or fringe changed (the key poses are measured in them): the keyforms are measured again, once, before the
+   *  next frame
    *  @internal */
   private retunePending = false
   /** @internal */
-  protected retuned(keys: string[]) { if (keys.includes('turn') || keys.includes('nod')) this.retunePending = true }
+  protected retuned(keys: string[]) { if (keys.some((k) => k === 'turn' || k === 'nod' || k === 'fringe')) this.retunePending = true }
   /** @internal */
   protected seen() { return this.puppet }
 

@@ -70,9 +70,10 @@ describe('feel settings the player reads', () => {
   })
 
   it('blink: the idle motion blinks as often as it says, and at 1 exactly as before', async (t) => {
-    const base = await blinks(t, {}), same = await blinks(t, { blink: 1 }), fast = await blinks(t, { blink: 3 }), slow = await blinks(t, { blink: 0.4 })
+    // (some blinks come with big glances, whatever the rate: the counts follow the rate, not in proportion)
+    const base = await blinks(t, {}, 300), same = await blinks(t, { blink: 1 }, 300), fast = await blinks(t, { blink: 3 }, 300), slow = await blinks(t, { blink: 0.4 }, 300)
     assert.deepEqual(same.eyes, base.eyes, 'blink 1 is the same frames as no setting')
-    assert.ok(base.n >= 20, `${base.n} blinks in two minutes`)
+    assert.ok(base.n >= 50, `${base.n} blinks in five minutes`)
     assert.ok(fast.n > base.n * 2, `blink 3: ${fast.n} blinks against ${base.n}`)
     assert.ok(slow.n < base.n * 0.6, `blink 0.4: ${slow.n} blinks against ${base.n}`)
   })
@@ -124,6 +125,24 @@ describe('feel settings the player reads', () => {
     n = 0
     for (let i = 0; i < 60 * 60; i++) frame()
     assert.ok(n > before * 2.5, `${n} blinks in the minute after, ${before} in the one before`)
+    p.dispose()
+  })
+
+  it('setTuning: a faster blink rate is seen at once, not after the slower one\'s wait', async (t) => {
+    const { frame } = page(t)
+    seeded(t)
+    const p = new BodyPlayer(canvas(), body(), { autoplay: false, followPointer: false })
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    p.setTuning({ blink: 0.2 })
+    let n = 0, last = 1
+    p.onFrame = (pose) => { if (pose.params.eyeLOpen < 0.5 && last >= 0.5) n++; last = pose.params.eyeLOpen }
+    p.play()
+    for (let i = 0; i < 40 * 60; i++) frame()  // a blink every 9-28 s
+    p.setTuning({ blink: 5 })
+    n = 0
+    let first = -1
+    for (let i = 0; i < 6 * 60; i++) { frame(); if (n && first < 0) first = i / 60 }
+    assert.ok(first >= 0 && first < 2, `the first blink after the change came ${first} s later`)
     p.dispose()
   })
 
