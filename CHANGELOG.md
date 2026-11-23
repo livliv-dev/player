@@ -41,9 +41,10 @@ turned back on eases in instead of jumping; and blinks no longer show a see-thro
   a 30 fps recording never showed the closed eye); now every one does. **Every character blinks this way at default
   settings.** A frame with the eyes open 0.2 or more, or shut, draws exactly as in 0.5; between 0.08 and 0.05 the open
   eye shows as a thin slit where it used to be a fading smear. Each of the idle motion's blinks ends 35 ms later, so
-  its later blinks and small glances fall a little differently. `player.puppet.blinkHandover = false` blinks as before
-  ([API.md](API.md#blinks)). `BodyPlayer` (VRM, PNGTuber) is unchanged. In the runtime entry: `Puppet.blinkHandover`,
-  `blinkHold` on `LivelyIdle` and `IdleDriver` (0 unless set), `BLINK_HOLD`, `eyeFade`, `blinkOpen`, `blinkOver`.
+  its later blinks and small glances fall a little differently. A new switch, `player.blinkHandover = false`, blinks as
+  before ([API.md](API.md#blinks)). `BodyPlayer` (VRM, PNGTuber) is unchanged. In the runtime entry:
+  `Puppet.blinkHandover`, `blinkHold` on `LivelyIdle` and `IdleDriver` (0 unless set), `BLINK_HOLD`, `eyeFade`,
+  `blinkOpen`, `blinkOver`.
 - **Long hair swings below the shoulders** ([#15](https://github.com/livliv-dev/player/issues/15)). Below the jaw, long
   hair used to follow the torso, so its tips moved less than the hair at the shoulders. A gentle pendulum, thrown by the
   head's and the torso's moves and settling by itself, now swings it sideways, more toward the tips (twin tails and

@@ -82,6 +82,12 @@ const move: ActionId = 'nod'
 player.act(move)
 player.setAway(true)
 player.maxPixelRatio = 1
+// the blink hand-over: a switch on Player; VRM and PNGTuber characters blink their own way
+player.blinkHandover = false
+const handover: boolean = player.blinkHandover
+void handover
+// @ts-expect-error not on BodyPlayer
+bodyPlayer.blinkHandover = false
 void [moved, code, new FromBody('http', 'x', { status: 404 }).status]
 const own: string | undefined = packageModelJson(['a/model.json', 'model.json'])
 const portable: Promise<Map<string, Blob>> = modelFiles('/characters/k01/')
