@@ -40,14 +40,15 @@ turned back on eases in instead of jumping; and blinks no longer show a see-thro
   for 35 ms: the close takes 75 ms and a frame often missed its bottom (a third of the blinks at 60 fps, two in three in
   a 30 fps recording never showed the closed eye); now every one does. **Every character blinks this way at default
   settings.** A frame with the eyes open 0.2 or more, or shut, draws exactly as in 0.5; between 0.08 and 0.05 the open
-  eye shows as a thin slit where it used to be a fading smear. `player.puppet.blinkHandover = false` blinks as before
+  eye shows as a thin slit where it used to be a fading smear. Each of the idle motion's blinks ends 35 ms later, so
+  its later blinks and small glances fall a little differently. `player.puppet.blinkHandover = false` blinks as before
   ([API.md](API.md#blinks)). `BodyPlayer` (VRM, PNGTuber) is unchanged. In the runtime entry: `Puppet.blinkHandover`,
   `blinkHold` on `LivelyIdle` and `IdleDriver` (0 unless set), `BLINK_HOLD`, `eyeFade`, `blinkOpen`, `blinkOver`.
 - **Long hair swings below the shoulders** ([#15](https://github.com/livliv-dev/player/issues/15)). Below the jaw, long
   hair used to follow the torso, so its tips moved less than the hair at the shoulders. A gentle pendulum, thrown by the
   head's and the torso's moves and settling by itself, now swings it sideways, more toward the tips (twin tails and
   ponytails included); hair over the body swings less. **Characters you already have move this way too: at their
-  default settings their hair tips sway when the head turns or the body leans.** A still frame is unchanged, and a
+  default settings their hair tips sway when the head turns or the body leans.** The rest pose is unchanged, and a
   character whose `tuning.hairBack` (format 4: `hair_back`) or new `hairSway` (`hair_sway`) is 0 draws every frame as
   in 0.5.
 - **Long hair lying on the body goes with the body.** From the neck down, long hair over the shoulders and chest used to go
@@ -55,7 +56,7 @@ turned back on eases in instead of jumping; and blinks no longer show a see-thro
   what it covered between the strands (light clothes in fragments through dark hair, a hard edge along a collar). Where
   hair lies over the body it now takes less of the head's motion and more of the body's; hair beside the body, the bangs
   and the long hair's swing are as before. **Characters you already have move this way too: their chest hair moves less
-  when the head turns.** A still frame is unchanged, and a character whose new `tuning.hairRest` (format 4:
+  when the head turns.** The rest pose is unchanged, and a character whose new `tuning.hairRest` (format 4:
   `hair_rest`) is 0 draws every frame as before.
 - **VRM files from Blender** ([#1](https://github.com/livliv-dev/player/issues/1)): a VRM 1.0 whose licence URL is not
   VRM's own (the author's terms page) plays, with that URL in its terms; node constraints that depend on each other in a
