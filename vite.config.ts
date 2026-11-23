@@ -1,7 +1,7 @@
-// The SDK as a library: ES modules, one file per entry (the core, and the optional tracking / voice / body / png / vrm, and
+// The SDK as a library: ES modules, one file per entry (the core, and the optional tracking / voice / body / png / vrm / mavatar, and
 // the advanced runtime),
 // shared code in chunks. The runtime is the site's own (../src/runtime): one source, built here, never copied. three
-// and three-vrm are the page's (optional peer dependencies), imported by vrm.js only.
+// and three-vrm are the page's (optional peer dependencies), imported by vrm.js only; mesh-avatar likewise, by mavatar.js only.
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -12,11 +12,11 @@ export default defineConfig({
     minify: true,
     lib: {
       entry: { index: 'src/index.ts', tracking: 'src/tracking.ts', voice: 'src/voice.ts', body: 'src/body.ts', png: 'src/png.ts', vrm: 'src/vrm.ts',
-        runtime: 'src/runtime.ts' },
+        mavatar: 'src/mavatar.ts', runtime: 'src/runtime.ts' },
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@mediapipe/tasks-vision', 'three', /^three\//, '@pixiv/three-vrm'],
+      external: ['@mediapipe/tasks-vision', 'three', /^three\//, '@pixiv/three-vrm', 'mesh-avatar'],
       // minify: true above leaves the whitespace of an ES library in place (and these comments with the file names): the
       // package's readers download dist as it is from a CDN, so this one takes it out too (pure annotations stay)
       output: { chunkFileNames: 'chunks/[name]-[hash].js', minify: true },

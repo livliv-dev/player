@@ -1,11 +1,12 @@
 // Browser smoke test: every featured character in characters/ loaded and drawn by the built player (dist/) in headless
 // Chromium (WebGL2 in software), with its mark, plus loading from files, a v3 package drawing like its v4, and
 // refusing a newer format (see smoke.html); then the characters that aren't LivLiv models, a PNGTuber and a VRM
-// (bodies.html).
+// (bodies.html), and a Mesh Avatar Studio avatar (mavatar.html).
 //   npm run build && npm run test:browser
 // Needs a Chromium for playwright-core once: npx playwright-core install chromium-headless-shell
 // With an engine's name (firefox, webkit: npm run test:engines), a small sample on that browser's engine: what the three
-// engines might do differently (loads replaced, the context lost and given up, the poster, the contract of the two classes).
+// engines might do differently (loads replaced, the context lost and given up, the poster, the contract of the two classes,
+// a .mavatar).
 import { createServer } from 'node:http'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
@@ -157,6 +158,12 @@ if (engine) {
     check(b.row.a === 'AbortError' && b.row.b === 'AbortError' && b.row.last === 'loaded' && b.held.d === 'd' && b.held.calls.join() === 'a,d', 'a BodyPlayer, several loads')
     const v = await page.evaluate(() => window.runBodyContext())
     check(v.vrm.told === 1 && v.vrm.load === 'context-lost' && v.vrmReleased.reuse === 'released' && !!v.png.again, 'a BodyPlayer, the context')
+    await page.goto(`http://127.0.0.1:${server.address().port}/test/mavatar.html`)
+    await page.waitForFunction(() => window.ready === true)
+    const ms = await page.evaluate((u) => window.runMavatarSources(u), '/test/fixtures/nana.mavatar')
+    check(ms.file === 0 && ms.folder === 0 && ms.lone.size.join() === '333,517' && ms.lone.covered > 0.5, `a .mavatar from a URL, a file and its files alike, at the size given: ${JSON.stringify(ms.lone)}`)
+    const mc = await page.evaluate((u) => window.runMavatarContext(u), '/test/fixtures/nana.mavatar')
+    check(mc.told === 1 && mc.load === 'context-lost' && mc.disposed.context === null && mc.reuse === 'released', `a .mavatar, the context: ${JSON.stringify(mc)}`)
     check(!errors.length, `no page errors${errors.length ? `: ${errors.join(' | ')}` : ''}`)
   } finally { await browser.close(); server.close() }
   console.log(failedHere ? `smoke ${engine}: ${failedHere} failed` : `smoke ${engine}: ok`)
@@ -617,6 +624,51 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} example/demo.html: ?model= on this site opens`)
     await p.close()
   }
+  // a Mesh Avatar Studio avatar (test/fixtures/nana.mavatar, made by LivLiv from Nana) drawn by mesh-avatar on a
+  // BodyPlayer (mavatar.html): each pose of the Player's in its picture, the same from a URL, a file and its unpacked
+  // files, the exact size asked for (on a canvas in no page, at a pixel ratio of 1 and of 2), bad files refused, its
+  // expressions mesh-avatar's own numbers, the context lost, given up and released as a Player's
+  for (const ratio of [1, 2]) {
+    const ctx = await browser.newContext({ deviceScaleFactor: ratio }), p = await ctx.newPage(), said = []
+    p.on('pageerror', (e) => said.push(e.message))
+    await p.goto(`http://127.0.0.1:${server.address().port}/test/mavatar.html`)
+    await p.waitForFunction(() => window.ready === true)
+    const fixture = '/test/fixtures/nana.mavatar', at = `pixel ratio ${ratio}`
+    const line = (ok, what) => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} .mavatar, ${at}: ${what}`) }
+    const src = await p.evaluate((u) => window.runMavatarSources(u), fixture)
+    line(src.names.every((n) => n === 'Nana') && src.file === 0 && src.folder === 0 && src.lone.size.join() === '333,517' && src.lone.covered > 0.5
+      && src.lone.wide.size.join() === '160,120' && src.lone.wide.covered > 0.2, `a URL, a file and its unpacked files draw alike; a canvas in no page takes the size given: ${JSON.stringify(src)}`)
+    if (ratio === 2) { await ctx.close(); continue }
+    const m = await p.evaluate((u) => window.runMavatarPoses(u), fixture), P = m.poses, ids = m.info.expressions
+    const checks = {
+      info: m.info.name === 'Nana' && m.info.format === 'mavatar' && ids.join() === 'smile,laugh,shy,surprise,halfLidded,angry,sad,wink'
+        && m.info.meta?.license?.id === 'LicenseRef-LivLiv-Samples' && m.info.meta.text,
+      size: m.size.join() === '300,400' && m.covered > 0.5,
+      head: Math.abs(m.head.x - 0.5) < 0.05 && m.head.y > 0.1 && m.head.y < 0.4 && !!m.anchors.head && m.anchors.body?.y > m.anchors.head.y,
+      turns: ['yawRight', 'yawLeft', 'up', 'rollRight', 'bodyRoll'].every((k) => P[k].face > 0.2),
+      // the top of the head to the screen's right with a positive roll, as a Player's; the eye on the screen's left is eyeL
+      sides: m.lean.rollRight.top > m.lean.rest.top + 0.01 && m.lean.bodyRoll.top > m.lean.rest.top + 0.01 && m.lean.yawRight.top > m.lean.rest.top
+        && P.leftEyeShut.box?.[2] < 0.5,
+      eyes: P.blink.face > 0.02 && P.gazeRight.face > 0.005,
+      mouth: ['mouthA', 'mouthI', 'mouthO'].every((k) => P[k].box?.[1] > m.head.y),
+      expressions: ids.filter((id) => id !== 'smile').every((id) => P[id].face > 0.02) && P.smile.share > 0.001,
+      move: m.lean.right.top > m.lean.rest.top + 0.1 && P.small.covered < m.covered / 3 && P.hop.share > 0.1,
+      time: m.again === 0 && m.swing > 0,
+    }
+    const wrong = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k)
+    line(!wrong.length, wrong.length ? `the poses: ${wrong.join(', ')}: ${JSON.stringify(m)}` : `the poses (${Object.keys(P).length}): turns, rolls, eyes, mouth shapes, ${ids.length} expressions, the move, time`)
+    const no = await p.evaluate(([u, b]) => window.runMavatarRefusals(u, b), [fixture, '/__bomb.png'])
+    line(no.garbage === 'not-a-model' && no.bomb === 'too-large' && no.badRig === 'invalid' && no.missing === 'missing-file' && no.none === 'missing-file'
+      && no.webglCanvas === 'canvas-in-use' && no.after === 'not-a-model' && no.kept, `refused, and the avatar before kept: ${JSON.stringify(no)}`)
+    const ex = await p.evaluate((u) => window.runMavatarExpressions(u), fixture)
+    line(Object.keys(ex).length === 7 && Object.values(ex).every((d) => d < 1e-9), `the expressions are mesh-avatar's own: ${Object.entries(ex).map(([k, v]) => `${k} ${v.toExponential(0)}`).join(', ')}`)
+    const cx = await p.evaluate((u) => window.runMavatarContext(u), fixture)
+    line(cx.before === false && cx.lost && cx.told === 1 && cx.load === 'context-lost' && cx.disposed.context === null && cx.disposed.lost && cx.reuse === 'released',
+      `the context: ${JSON.stringify(cx)}`)
+    line(!said.length, `no page errors${said.length ? `: ${said.join(' | ')}` : ''}`)
+    await ctx.close()
+  }
+
   // no WebGL at all: the example pages say so, the check says no, new Player() says why (the pages fail on purpose: no
   // error of theirs counts here)
   const plain = await chromium.launch({ args: ['--disable-gpu', '--disable-software-rasterizer', '--disable-webgl', '--disable-webgl2', '--disable-3d-apis'] })
@@ -642,6 +694,14 @@ try {
     const ok = r.supported === false && /turned off/.test(r.thrown)
     if (!ok) failed++
     console.log(`${ok ? 'ok  ' : 'FAIL'} no WebGL: isSupported ${r.supported}, new Player() says "${r.thrown}"`)
+    await p.goto(`http://127.0.0.1:${server.address().port}/test/mavatar.html`)
+    await p.waitForFunction(() => window.ready === true)
+    const mav = await p.evaluate(async () => {
+      const { BodyPlayer } = await import('/dist/body.js'), { MavatarBody } = await import('/dist/mavatar.js')
+      try { await new BodyPlayer(document.createElement('canvas'), new MavatarBody(), { autoplay: false }).load('/test/fixtures/nana.mavatar'); return 'loaded' } catch (e) { return e.code }
+    })
+    if (mav !== 'no-webgl') failed++
+    console.log(`${mav === 'no-webgl' ? 'ok  ' : 'FAIL'} no WebGL: a .mavatar's load says ${mav}`)
   } finally { await plain.close() }
 } finally {
   await browser.close()

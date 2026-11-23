@@ -22,6 +22,7 @@ import { createSpeech, startLipSync, type ClipHooks, type LipSync } from '${name
 import { BODY_LIMIT, BodyPlayer, LivLivError as FromBody, type Body } from '${name}/body'
 import { PngBody } from '${name}/png'
 import { VrmBody } from '${name}/vrm'
+import { MAVATAR_LIMITS, MavatarBody, type MavatarBodyOptions, type MavatarTerms } from '${name}/mavatar'
 import { Puppet, LIMITS, V, keyformsFit, readModel, LivelyIdle, IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand, type MeshView, type LayerHit, type Fit as RuntimeFit } from '${name}/runtime'
 declare const canvas: HTMLCanvasElement
 const player = new Player(canvas, { parameterProfile: {} })
@@ -65,6 +66,17 @@ player.use({ update(f: Frame) { f.talk += f.grounded ? -0.01 : 0 } })
 void [old, tall]
 player.renderPose(pose, 1 / 30, [640, 960])
 void [VERSION, model, view, tracking, sync, preloadFaceModel(), createSpeech(player), BODY_LIMIT, bodyPlayer, new VrmBody()]
+// a .mavatar: its body, its sway, its terms as its avatar.json says them
+const mavOptions: MavatarBodyOptions = { sway: 0.5 }
+const mav = new MavatarBody(mavOptions)
+mav.sway = 1
+const mavPlayer = new BodyPlayer(canvas, mav)
+const mavTerms = mavPlayer.model?.meta as MavatarTerms | null | undefined
+const mavLicence: string | null | undefined = mavTerms?.text
+const mavFormat: 'mavatar' = mav.format
+void [MAVATAR_LIMITS.side, MAVATAR_LIMITS.pixels, mavLicence, mavFormat, mavPlayer.load(new File([], 'a.mavatar'))]
+// @ts-expect-error sway is a number
+void new MavatarBody({ sway: 'lots' })
 // the expressions getter keeps the model's label fields on both players (issue #8): label is a string, labels a map
 const playerLabels: string[] = player.expressions.map((e) => e.label)
 const playerTranslations: string[] = player.expressions.map((e) => e.labels.en)

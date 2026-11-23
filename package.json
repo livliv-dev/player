@@ -1,7 +1,7 @@
 {
   "name": "@livliv-dev/player",
   "version": "0.6.0",
-  "description": "LivLiv Player: a lightweight 2.5D character player for the web, with lip sync and webcam face tracking. Plays LivLiv, VRM and PNGTuber characters; WebGL2, no dependencies in the core.",
+  "description": "LivLiv Player: a lightweight 2.5D character player for the web, with lip sync and webcam face tracking. Plays LivLiv, VRM, PNGTuber and Mesh Avatar Studio (.mavatar) characters; WebGL2, no dependencies in the core.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/livliv-dev/player#readme",
   "repository": {
@@ -16,6 +16,7 @@
     "vtuber",
     "pngtuber",
     "vrm",
+    "mavatar",
     "character",
     "puppet",
     "webgl2",
@@ -64,6 +65,10 @@
       "types": "./dist/types/src/vrm.d.ts",
       "import": "./dist/vrm.js"
     },
+    "./mavatar": {
+      "types": "./dist/types/src/mavatar.d.ts",
+      "import": "./dist/mavatar.js"
+    },
     "./runtime": {
       "types": "./dist/types/src/runtime.d.ts",
       "import": "./dist/runtime.js"
@@ -72,6 +77,7 @@
   "peerDependencies": {
     "@mediapipe/tasks-vision": "1.1.1",
     "@pixiv/three-vrm": "^3.5.5",
+    "mesh-avatar": "0.9.0",
     "three": ">=0.170.0"
   },
   "peerDependenciesMeta": {
@@ -79,6 +85,9 @@
       "optional": true
     },
     "@pixiv/three-vrm": {
+      "optional": true
+    },
+    "mesh-avatar": {
       "optional": true
     },
     "three": {
@@ -89,6 +98,7 @@
     "@mediapipe/tasks-vision": "1.1.1",
     "@pixiv/three-vrm": "3.5.5",
     "@types/three": "0.186.0",
+    "mesh-avatar": "0.9.0",
     "playwright-core": "^1.64.1",
     "three": "0.186.0",
     "typescript": "~6.0.3",
