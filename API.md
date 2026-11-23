@@ -209,6 +209,7 @@ player.tuning.turn                            // 1 (if the model says nothing)
 | `hairFront` | `hair_front` | the bangs' swing, in place of `hair` |
 | `hairBack` | `hair_back` | long hair's and the swinging pieces' swing, in place of `hair` |
 | `hairSway` | `hair_sway` | how far long hair swings sideways below the shoulders, times `hairBack`; 0 off |
+| `hairRest` | `hair_rest` | how much long hair lying on the body below the neck goes with the body, not the head, 0..1 (more counts as 1); 0 off, 1 when the model says nothing |
 | `breath` | `breath` | breathing |
 | `gaze` | `gaze` | the share of the iris's travel the eyes use, 0..1 (more counts as 1) |
 | `fringe` | `fringe` | how far the bangs stand off the face: their depth times this, 0 on the face, at most about twice |

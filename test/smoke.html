@@ -726,6 +726,32 @@
     return { same: offFile.map((d, i) => differ(d, offSet[i])), swings: on.map((d, i) => differ(d, offSet[i])) }
   }
 
+  /** long hair resting on the body: a still frame, then frames of the head turning and the body leaning, as the model comes
+   *  (on by default), with tuning.hair_rest 0 in its file, and with setTuning({ hairRest: 0 }): the still frames all the same,
+   *  the last two runs the same frames, the first different from them */
+  window.runRest = async (id) => {
+    const m = bare(await json(id))
+    const play = async (model, set) => {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      await p.load(await filesOf(id, model))
+      p.resize()
+      if (set) p.setTuning(set)
+      const base = p.getPose()
+      p.renderPose(base, 1 / 60)
+      const still = pixels(), shots = []
+      for (let n = 0; n < 90; n++) {
+        const params = { ...base.params, angleX: 28 * Math.sin(n / 9), angleZ: 12 * Math.sin(n / 13), bodyX: 8 * Math.sin(n / 11), bodyZ: 6 * Math.sin(n / 15) }
+        p.renderPose({ ...base, params }, 1 / 60)
+        if (n % 10 === 9) shots.push(pixels())
+      }
+      p.dispose()
+      return { still, shots }
+    }
+    const on = await play(m), offFile = await play({ ...m, tuning: { ...m.tuning, hair_rest: 0 } }), offSet = await play(m, { hairRest: 0 })
+    return { still: [differ(on.still, offSet.still), differ(offFile.still, offSet.still)],
+      same: offFile.shots.map((d, i) => differ(d, offSet.shots[i])), rests: on.shots.map((d, i) => differ(d, offSet.shots[i])) }
+  }
+
   /** the advanced entry, @livliv-dev/player/runtime: the same renderer as Player's (one copy of the code), its exports, the
    *  warm-up off there and on in Player, and the inspection methods: meshes(), rgbaAt(), layersAt() against livliv.ai's own
    *  pickPosed (written out here from meshes() and rgbaAt()), at rest and in turned poses */

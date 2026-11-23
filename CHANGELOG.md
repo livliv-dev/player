@@ -2,9 +2,9 @@
 
 ## 0.6.0
 
-Long hair that swings, feel settings an editor can change while the character plays, an advanced entry for code that
-runs the renderer itself, and VRM files from Blender that play. A page written for 0.5 needs no change; the one thing it
-will see is long hair swinging (below).
+Long hair that swings and rests on the shoulders, feel settings an editor can change while the character plays, an
+advanced entry for code that runs the renderer itself, and VRM files from Blender that play. A page written for 0.5 needs
+no change; what it will see is long hair swinging, and chest hair moving less with the head (below).
 
 ### New
 
@@ -23,9 +23,9 @@ will see is long hair swinging (below).
   runs its own frame loop, with `meshes()`, `rgbaAt()` and `layersAt()` to ask what is drawn where. Outside the
   compatibility promise of the other entries: pin the exact version. See [API.md](API.md#advanced-livliv-devplayerruntime).
 - **`packageModelJson(paths)`**: which `model.json` among a package's files is its own, as `load()` picks it.
-- **Format 4.2** ([FORMAT.md](FORMAT.md#5-profile-tuning-anchors)): `tuning.gaze`, `tuning.fringe` and
-  `tuning.hair_sway` in the schema, all optional. The player read `gaze` and `fringe` before, but the schema refused a
-  file that had them. The `Tuning` type is exported.
+- **Format 4.2** ([FORMAT.md](FORMAT.md#5-profile-tuning-anchors)): `tuning.gaze`, `tuning.fringe`,
+  `tuning.hair_sway` and `tuning.hair_rest` in the schema, all optional. The player read `gaze` and `fringe` before, but
+  the schema refused a file that had them. The `Tuning` type is exported.
 
 ### Changed
 
@@ -36,6 +36,13 @@ will see is long hair swinging (below).
   default settings their hair tips sway when the head turns or the body leans.** A still frame is unchanged, and a
   character whose `tuning.hairBack` (format 4: `hair_back`) or new `hairSway` (`hair_sway`) is 0 draws every frame as
   in 0.5.
+- **Long hair lying on the body goes with the body.** From the neck down, long hair over the shoulders and chest used to go
+  almost wholly with the head, so a large move of the head and the torso together slid it over the clothes and showed
+  what it covered between the strands (light clothes in fragments through dark hair, a hard edge along a collar). Where
+  hair lies over the body it now takes less of the head's motion and more of the body's; hair beside the body, the bangs
+  and the long hair's swing are as before. **Characters you already have move this way too: their chest hair moves less
+  when the head turns.** A still frame is unchanged, and a character whose new `tuning.hairRest` (format 4:
+  `hair_rest`) is 0 draws every frame as before.
 - **VRM files from Blender** ([#1](https://github.com/livliv-dev/player/issues/1)): a VRM 1.0 whose licence URL is not
   VRM's own (the author's terms page) plays, with that URL in its terms; node constraints that depend on each other in a
   circle are left out with a warning instead of refusing the file; a file that cannot play says why in the exporter's

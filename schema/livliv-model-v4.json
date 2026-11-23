@@ -168,6 +168,7 @@
         "hair_front": { "type": "number", "minimum": 0, "maximum": 10 },
         "hair_back": { "type": "number", "minimum": 0, "maximum": 10 },
         "hair_sway": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: how far long hair swings sideways below the shoulders, times hair_back (or hair); 0 off." },
+        "hair_rest": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: the share of the head's motion that long hair lying on the body below the neck gives up to the body's, 0-1 (more counts as 1); 0 off, missing 1." },
         "blink": { "type": "number", "minimum": 0, "maximum": 10 },
         "expr": { "type": "number", "minimum": 0, "maximum": 10 },
         "mouth": { "type": "number", "minimum": 0, "maximum": 10 },

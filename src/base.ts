@@ -186,7 +186,7 @@ const finite = (v: unknown, fallback: number) => (typeof v === 'number' && Numbe
  *  @internal */
 export const defaultFeel = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
 /** every feel setting's name (Tuning's keys) */
-const FEEL_KEYS: readonly string[] = ['turn', 'nod', 'hair', 'hairFront', 'hairBack', 'hairSway', 'blink', 'expr', 'mouth', 'breath', 'gaze', 'fringe']
+const FEEL_KEYS: readonly string[] = ['turn', 'nod', 'hair', 'hairFront', 'hairBack', 'hairSway', 'hairRest', 'blink', 'expr', 'mouth', 'breath', 'gaze', 'fringe']
 const FITS: readonly Fit[] = ['frame', 'whole', 'knee']
 /** the deepest a recorded pose may crouch or dip a full-body character (a share of its frame's height): live ones reach
  *  about 0.07, and a whole frame's height would fold the legs past the feet */
