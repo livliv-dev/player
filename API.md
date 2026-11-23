@@ -217,7 +217,8 @@ player.tuning.turn                            // 1 (if the model says nothing)
 | `expr` | `expr` | how readily face tracking reads a smile |
 | `mouth` | `mouth` | how far face tracking and live lip sync open the mouth |
 
-A value is a number from 0 up (model files keep to 0..10); `undefined` or `null` puts a setting back to the model's own.
+A value is a number from 0 to 10, as in a model file (above 10 counts as 10); `undefined` or `null` puts a setting back to
+the model's own.
 A name that is no setting, or a value that is no number from 0 up, throws a `TypeError` and changes nothing. Each
 `load()` starts again from the new character's own settings. At 1 (or not set) a setting changes nothing: a model
 without `tuning` plays as it always has. Changing `turn`, `nod` or `fringe` on a model with keyforms measures its key

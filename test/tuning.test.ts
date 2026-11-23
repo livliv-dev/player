@@ -160,6 +160,14 @@ describe('feel settings the player reads', () => {
       assert.deepEqual({ ...p.tuning }, was, `${JSON.stringify(bad)} changed nothing`)
     }
     assert.throws(() => p.setTuning(null as never), TypeError)
+    p.setTuning({ hairSway: 1e6, blink: 10 })
+    assert.equal(p.tuning.hairSway, 10, 'above 10 counts as 10, as in a model file')
+    assert.equal(p.tuning.blink, 10)
+    const view = p.tuning
+    assert.equal(p.tuning, view, 'the same frozen copy until the settings change')
+    p.setTuning({ mouth: 0.5 })
+    assert.notEqual(p.tuning, view)
+    assert.equal(view.mouth, 1.25, 'a copy given out before stays as it was')
     await p.load(new Map([['m', new Blob(['x'])]]))
     assert.deepEqual({ ...p.tuning }, defaults, 'a load starts again from the character\'s own')
     p.dispose()

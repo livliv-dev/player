@@ -240,8 +240,9 @@ try {
     const r = await page.evaluate((id) => window.runTuning(id), ids.find((i) => i === 'k01') ?? ids[0])
     const t = r.read
     const ok = t.blink === 2.5 && t.expr === 0.5 && t.mouth === 1.5 && t.hairFront === 1.2 && t.turn === 1 && r.frozen && r.still === 0
+      && r.playing.blinkRate === 2.5 && r.playing.mouth === 1.5 && r.playing.expr === 0.5
     if (!ok) failed++
-    console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame`)
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame and play as the file says (blink rate ${r.playing.blinkRate}, drivers read mouth ${r.playing.mouth}, expr ${r.playing.expr})`)
     const kf = ids.find((id) => JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')).files?.keyforms)
     const s = await page.evaluate(([a, b]) => window.runSetTuning(a, b), [ids.find((i) => i === 'k01') ?? ids[0], kf ?? ids[0]])
     const zero = (xs) => xs.every((n) => n === 0), some = (xs) => xs.some((n) => n > 0)

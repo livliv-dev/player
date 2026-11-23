@@ -627,8 +627,10 @@ export class Puppet {
   /** keyforms.json's interp 'hermite': per key, the key on the other side of 0 of the same angle (-1: none) */
   private kfPair: number[] | null = null
   kfOff = false
-  /** the keyforms the keys were measured from, kept to measure them again when turn or nod changes (retune) */
+  /** the keyforms the keys were measured from, kept to measure them again when turn, nod or fringe changes (retune), and
+   *  their fields decoded */
   private kfFile: KeyformFile | undefined = undefined
+  private kfBytes: Map<string, Uint8Array> | undefined = undefined
   /** each key's weight (Puppet.keys order) set by the caller instead of taken from the angle: a player switching
    *  between puppets of drawn views morphs each toward the other's layout over a fixed time */
   keyWeights: number[] | null = null
@@ -884,7 +886,7 @@ export class Puppet {
     // all that carries over from frame to frame starts again: nothing of the model before moves this one (and a NaN
     // in the torso's smoothing once stayed there for good, whatever was loaded next)
     this.resetPhysics()
-    this.keys = []; this.kfPair = null; this.kfFile = undefined
+    this.keys = []; this.kfPair = null; this.kfFile = undefined; this.kfBytes = undefined
     if (keyforms && keyformsFit(keyforms)) { this.kfFile = keyforms; this.prepareKeyforms(keyforms) }
     else if (keyforms) console.warn('LivLiv: keyforms.json is not one this player reads; the character plays on the rig alone')
   }
@@ -895,7 +897,8 @@ export class Puppet {
   private prepareKeyforms(K: KeyformFile) {
     // base64 to bytes, each field once (one field can serve every head layer). A plain loop: Uint8Array.from(text, mapper)
     // calls back per character, which took half of the refined Nana's load
-    const seen = new Map<string, Uint8Array>()
+    // (kept with the keyforms: measuring again for a change of turn, nod or fringe, as a slider moves, decodes nothing again)
+    const seen = this.kfBytes ??= new Map<string, Uint8Array>()
     const bytes = (b64: string) => {
       let out = seen.get(b64)
       if (!out) {

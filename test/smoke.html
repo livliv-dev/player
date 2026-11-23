@@ -639,8 +639,12 @@
     await p.load(await filesOf(id, own))
     out.read = { ...p.tuning }
     out.frozen = Object.isFrozen(p.tuning)
+    // the file's own settings are what plays: the idle motion's blink rate, and what drivers (lip sync, face tracking) read
+    let seen = null
+    p.use({ update(_f, host) { seen = host.tuning } })
     p.resize()
     out.still = changed(b.d, pixels())
+    out.playing = { blinkRate: p.idler.lv.blinkRate, mouth: seen?.mouth, expr: seen?.expr }
     p.dispose()
     return out
   }
