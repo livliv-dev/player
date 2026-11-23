@@ -79,6 +79,7 @@ export class Player extends PlayerBase<ModelInfo> {
     super(canvas, puppet.params, options)
     this.puppet = puppet
     this.puppet.maxDpr = options.maxPixelRatio ?? 2
+    this.puppet.prewarm = true  // the first blink, glance or expression after a load doesn't wait on its pictures
     this.mark = new Mark(this.puppet.gl)
   }
 

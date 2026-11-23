@@ -629,6 +629,10 @@ export class Puppet {
    *  stencil at mask alpha 0.5 everywhere, stepped along the cut (for comparisons). At rest it is the
    *  stencil either way, so the rest pose stays as built */
   softIris = true
+  /** draw everything a model may draw once on its first frame, out of sight (warm): off by default here, on in Player */
+  prewarm = false
+  /** the model's textures and ways of drawing have not been used yet: the next render draws them once first (warm) */
+  private cold = false
   /** a look toward the nose stops the iris's inner edge at the drawn inner corner, where the whites end: past it
    *  the whites' straight end cut the iris. Its far edge travels on, so the iris narrows as an eyeball
    *  turning does, to irisNasalNarrow of its width at most, and then stops whole (1: stops whole at the corner, the eyes
@@ -766,6 +770,7 @@ export class Puppet {
 
   private build(model: ModelDef, imgs: LayerImages[], keyforms: KeyformFile | undefined, built: GLLayer[]) {
     this.model = model
+    this.cold = true
     // where the long hair ends (the swing's reach): the lowest hair layer's box, the drawing's bottom at most (one value for every hair
     // layer, so their weights stay one field). Twin tails that end at the chest swing to their tips, not to the picture's bottom edge
     const hairBoxes = model.layers.filter((L) => (L.group === 'hair_back' || L.group === 'hair_side' || L.group === 'hair_inner') && !L.rigid)
@@ -1858,6 +1863,43 @@ export class Puppet {
     gl.drawElements(gl.TRIANGLES, L.count, gl.UNSIGNED_INT, 0)
   }
 
+  /** The model's first frame draws everything it may draw later once first, out of sight. A browser may put off a
+   *  texture's upload (and the GPU's setup for a way of drawing) until its first use: the first blink could stall on the
+   *  closed lashes, the first glance on the eyes' masks, a first expression on its picture. Here: the irises' masks into their
+   *  framebuffer (as a glance draws them), then every texture of every layer into one pixel of the canvas, as it is drawn
+   *  plainly, and an eye's whites into the stencil with the colour off and an iris through it (as an eye at rest is drawn).
+   *  The frame's own masks and its clear (the scissor off again) come after: nothing of this shows */
+  private warm(w: number, h: number, sx: number, sy: number, ox: number, oy: number) {
+    const gl = this.gl
+    this.cold = false
+    const irises = this.layers.filter((L) => (L.def.role || '').startsWith('iris_'))
+    const soft = irises.map((L) => L.soft)
+    for (const L of irises) L.soft = 1
+    this.drawMasks(w, h, sx, sy, ox, oy)
+    irises.forEach((L, i) => { L.soft = soft[i] })
+    for (const L of this.layers) L.maskCh = -1
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(0, 0, 1, 1)
+    for (const L of this.layers) {
+      for (const t of [L.tex, ...L.frames, L.mask, L.talk, L.browTex]) if (t) this.drawLayer(L, t, 1)
+    }
+    const eye = this.layers.find((L) => (L.def.role || '').startsWith('eye_') && L.mask), iris = irises[0] ?? eye
+    if (eye && iris) {
+      gl.enable(gl.STENCIL_TEST)
+      gl.stencilFunc(gl.ALWAYS, 1, 0xff)
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE)
+      gl.colorMask(false, false, false, false)
+      this.drawLayer(eye, eye.mask!, 1, undefined, 0.5)
+      gl.colorMask(true, true, true, true)
+      gl.stencilFunc(gl.EQUAL, 1, 0xff)
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP)
+      this.drawLayer(iris, iris.tex, 1)
+      gl.disable(gl.STENCIL_TEST)
+    }
+    gl.disable(gl.SCISSOR_TEST)
+    gl.uniform1f(this.uCut, 0)
+  }
+
   /** softIris: the whites of each eye whose iris sits off it (a glance, a blink), as they show this frame, into a
    *  channel each (maskCh) of a texture over their box in drawing-buffer pixels; the iris is then drawn times them
    *  (uMode 2) instead of through the stencil, whose 1-bit cut at alpha 0.5 is a staircase wherever the iris crosses
@@ -1959,6 +2001,7 @@ export class Puppet {
     // a full-body model takes the sideways move as a sway from the ankles (fbPose): sliding it would slide the feet
     const ox = (this.focusHead ? -hd.cx * sx : -cx2 * s / w) + 2 * (V.x + (this.fb ? 0 : M.x))
     gl.uniform4f(this.uView, sx, sy, ox, oy)
+    if (this.cold && this.prewarm) this.warm(w, h, sx, sy, ox, oy)
     this.drawMasks(w, h, sx, sy, ox, oy)
     clear()
     this.lastView = [sx, sy, ox, oy, w, h]

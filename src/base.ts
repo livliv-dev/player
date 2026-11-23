@@ -231,6 +231,8 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
   private parameterFilter = new TrackingFilter()
   /** last frame's: a face tracker drove it, the mouth moved (the idle starts no move while the character talks) */
   private was = { tracked: false, mouth: 0 }
+  /** frames were drawn with the idle motion off since it last ran: when it goes on, it eases in from them */
+  private idleGap = false
   /** @internal */
   protected actions = new ActionPlayer()
   private drivers: Driver[] = []
@@ -565,6 +567,8 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     this.idler.shown(P)
     Object.assign(P, this.params)
     this.idler.lv.blinkRate = factor(this.feel.blink)
+    if (this.idle && this.idleGap) { this.idler.resume(P, t); this.idleGap = false }
+    else if (!this.idle) this.idleGap = true
     if (this.idle) {
       this.idler.apply(P, t, dt, { busy: A.busy || this.was.mouth > 0.05, tracked: this.was.tracked,
         faceFree: !this.smile && !Object.values(E).some((v) => v > 0.02) })

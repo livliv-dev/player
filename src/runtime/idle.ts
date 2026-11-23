@@ -190,6 +190,19 @@ export class LivelyIdle {
   private double = false
   private seed = Math.random() * 100
 
+  /** the springs at rest at a pose's head and body (P's), the body's follow of the head let go: an idle motion that was
+   *  off goes on from that pose rather than from where it stopped */
+  startFrom(P: Params) {
+    for (const k of Object.keys(SPRING) as (keyof typeof SPRING)[]) { this.s[k].x = P[k]; this.s[k].v = 0 }
+    this.aim = null
+    this.fol = { x: 0, z: 0, x2: 0, z2: 0 }
+    // the breath goes on from the pose's, breathing in
+    const b = clamp(P.breath, 0, 1)
+    let lo = 0, hi = 1
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smoothstep(0, 1, m) < b) lo = m; else hi = m }
+    this.breathPhase = 0.4 * lo
+  }
+
   private breath(dt: number) {
     this.breathPhase += dt / this.breathPeriod
     if (this.breathPhase >= 1) { this.breathPhase -= 1; this.breathPeriod = 3.2 + Math.random() * 1.4 }
