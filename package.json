@@ -63,6 +63,10 @@
     "./vrm": {
       "types": "./dist/types/src/vrm.d.ts",
       "import": "./dist/vrm.js"
+    },
+    "./runtime": {
+      "types": "./dist/types/src/runtime.d.ts",
+      "import": "./dist/runtime.js"
     }
   },
   "peerDependencies": {

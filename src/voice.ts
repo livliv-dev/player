@@ -7,7 +7,8 @@
 import { VoiceMeter } from './runtime/voice'
 import { SpeechPlayer, type ClipHooks } from './runtime/speech'
 import { TalkMotion } from './runtime/talk'
-import { factor, type Driver, type Host } from './base'
+import type { Driver, Host } from './base'
+import { factor } from './feel'
 
 export type { ClipHooks }
 

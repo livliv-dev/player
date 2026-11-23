@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { describe, it, type TestContext } from 'node:test'
 import { BodyPlayer, type Body, type Host, type Tuning } from '../src/body'
-import { factor } from '../src/base'
+import { factor } from '../src/feel'
 import { FaceTracker } from '../src/runtime/tracking'
 import { VoiceMeter } from '../src/runtime/voice'
 import { startFaceTracking } from '../src/tracking'

@@ -4,7 +4,8 @@
 // cached by the browser after that).
 import { FaceTracker, LOST_AFTER, V, loadFaceModel, setFaceModelFiles, type StartStep } from './runtime/tracking'
 import { defaultParams, type Params } from './runtime/params'
-import { factor, type Driver, type Host } from './base'
+import type { Driver, Host } from './base'
+import { factor } from './feel'
 import { TrackingFilter, type TrackingProfile, type TrackingSample } from './profile'
 export { TrackingFilter, parameterRule, readTrackingProfile, TRACKING_PARAMETERS } from './profile'
 export type { ParameterRule, TrackingProfile, TrackingSample, TrackingParameter } from './profile'

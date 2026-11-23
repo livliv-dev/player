@@ -911,6 +911,7 @@ export class Puppet {
     this.anchorModel = null
     this.freeLayers(this.layers)
     this.freeMask()
+    if (this.pickFb) { this.gl.deleteFramebuffer(this.pickFb); this.pickFb = null }
     this.layers = []
   }
 
@@ -2223,12 +2224,98 @@ export class Puppet {
 
   snapshot(): string { return this.canvas.toDataURL('image/png') }
 
+  /** For tools (an editor, QA): every layer drawn in the last frame, bottom first, with its mesh as that frame deformed
+   *  it: the vertices at rest and as drawn (model px, x y pairs) and the triangles (vertex index triples). A view of the
+   *  puppet's own arrays, good until the next frame: read it, never write to it */
+  meshes(): readonly MeshView[] {
+    return this.layers.filter((L) => this.shown(L)).map((L) => ({ id: L.def.id, group: L.def.group, role: L.def.role, clip: L.def.clip, rest: L.rest, out: L.out, tri: L.tri }))
+  }
 
+  /** A layer's own picture at (X, Y) of its place at rest (model px): straight RGBA, 0-255. Null outside its box, or for a
+   *  layer the model does not have. Read back from the GPU: one pixel at a time, for a click, not for every frame */
+  rgbaAt(id: string, X: number, Y: number): [number, number, number, number] | null {
+    const L = this.byId.get(id)
+    if (!L) return null
+    const c = this.texelOf(L, X, Y)
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
+    return c
+  }
+
+  /** What is under the drawing-buffer pixel (px, py) (from the top left) in the frame last drawn, whatever the pose: the
+   *  layers drawn there, top first, each looked up through its own mesh, so a turned head still names the hair it shows
+   *  and `rest` is the place in the layer's picture, which does not move with the pose. A layer counts where its picture's
+   *  alpha there is at least `faint`, an iris only inside its eye's whites (at least half opaque there, as the stencil
+   *  cuts it); the walk stops after `solid` layers at least half opaque. `at` is the point in model px. Each layer's
+   *  picture is its main one (a mouth's frames and an expression's talking copy are not read) */
+  layersAt(px: number, py: number, { faint = 8, solid = 2 }: { faint?: number; solid?: number } = {}): { at: [number, number]; layers: LayerHit[] } {
+    const [sx, sy, ox, oy, w, h] = this.lastView
+    const X = ((2 * px) / w - 1 - ox) / sx, Y = ((2 * py) / h - 1 - oy) / sy
+    const layers: LayerHit[] = []
+    if (!this.model) return { at: [X, Y], layers }
+    const M = this.meshes(), byId = new Map(M.map((m) => [m.id, m]))
+    let n = 0
+    for (let i = M.length - 1; i >= 0 && n < solid; i--) {
+      const m = M[i], rest = restOn(m, X, Y)
+      const c = rest && this.rgbaAt(m.id, rest[0], rest[1])
+      if (!rest || !c || c[3] < faint) continue
+      const clip = m.clip ? byId.get(m.clip) : undefined
+      if (clip) {
+        const rc = restOn(clip, X, Y), a = rc && this.rgbaAt(clip.id, rc[0], rc[1])
+        if (!a || a[3] < 128) continue
+      }
+      layers.push({ id: m.id, role: m.role, group: m.group, rgba: c, rest })
+      if (c[3] >= 128) n++
+    }
+    return { at: [X, Y], layers }
+  }
+
+  private pickFb: WebGLFramebuffer | null = null
+
+  /** straight RGBA (0-255) of a layer's texture at (X, Y) of its rest place (model px), null outside it. Leaves the
+   *  picking framebuffer bound */
+  private texelOf(L: GLLayer, X: number, Y: number): [number, number, number, number] | null {
+    const gl = this.gl, d = L.def, u = (X - d.x) / d.w, v = (Y - d.y) / d.h
+    if (!(u >= 0 && v >= 0 && u < 1 && v < 1)) return null
+    this.pickFb ??= gl.createFramebuffer()
+    const c = new Uint8Array(4)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.pickFb)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex, 0)
+    gl.readPixels(Math.floor(u * L.tw), Math.floor(v * L.th), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, c)  // premultiplied
+    return c[3] ? [c[0] * 255 / c[3], c[1] * 255 / c[3], c[2] * 255 / c[3], c[3]] : [0, 0, 0, 0]
+  }
+}
+
+/** a layer's mesh as the last frame drew it (Puppet.meshes): a view of the puppet's own arrays, good until the next frame */
+export interface MeshView {
+  readonly id: string; readonly group: string; readonly role?: string; readonly clip?: string
+  /** the vertices at rest and as drawn, model px, x y pairs */
+  readonly rest: ArrayLike<number>; readonly out: ArrayLike<number>
+  /** the triangles, vertex index triples */
+  readonly tri: ArrayLike<number>
+}
+
+/** a layer under a point (Puppet.layersAt): its picture's colour there (straight RGBA 0-255) and the place in it, at rest */
+export interface LayerHit { id: string; role?: string; group: string; rgba: [number, number, number, number]; rest: [number, number] }
+
+/** where (X, Y) of the frame is at rest on this mesh (model px), null off it */
+function restOn(m: MeshView, X: number, Y: number): [number, number] | null {
+  const o = m.out, r = m.rest, t = m.tri
+  for (let i = 0; i < t.length; i += 3) {
+    const a = 2 * t[i], b = 2 * t[i + 1], c = 2 * t[i + 2]
+    const ax = o[a], ay = o[a + 1], bx = o[b], by = o[b + 1], cx = o[c], cy = o[c + 1]
+    if ((X < ax && X < bx && X < cx) || (X > ax && X > bx && X > cx) || (Y < ay && Y < by && Y < cy) || (Y > ay && Y > by && Y > cy)) continue
+    const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+    if (Math.abs(d) < 1e-6) continue
+    const u = ((by - cy) * (X - cx) + (cx - bx) * (Y - cy)) / d, v = ((cy - ay) * (X - cx) + (ax - cx) * (Y - cy)) / d, w = 1 - u - v
+    if (u < -1e-4 || v < -1e-4 || w < -1e-4) continue
+    return [u * r[a] + v * r[b] + w * r[c], u * r[a + 1] + v * r[b + 1] + w * r[c + 1]]
+  }
+  return null
 }
 
 /** a keyforms.json the runtime can read safely (an untrusted file: a field of the wrong size would be read past its
  *  end): version 1, its grid in range, at most 32 keys, every field and mask exactly the grid's size in base64 */
-function keyformsFit(K: KeyformFile): boolean {
+export function keyformsFit(K: KeyformFile): boolean {
   const int = (v: unknown, lo: number, hi: number) => Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi
   const pos = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0
   if (K?.version !== 1 || !int(K.cols, 2, 4096) || !int(K.rows, 2, 4096) || K.cols * K.rows > 2 ** 22) return false

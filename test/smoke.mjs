@@ -253,6 +253,15 @@ try {
     console.log(`${setOk ? 'ok  ' : 'FAIL'} setTuning() draws as a load with the same settings: ${s.plain.set.join('/')} px differ (${s.plain.moved.join('/')} from the character's own); with keyforms (${kf}) ${s.keyforms.set.join('/')} px (keys ${s.keyforms.keys[1]}), set back ${s.keyforms.back.join('/')} px, a frame ${s.keyforms.ms[0]} ms, with the keys measured again ${s.keyforms.ms[1]} ms${setOk ? '' : `: ${JSON.stringify(s)}`}`)
   }
 
+  // the advanced entry (see runRuntime)
+  {
+    const r = await page.evaluate((a) => window.runRuntime(a), ids.find((i) => i === 'k01') ?? ids[0])
+    const ok = !r.exports.length && r.brand === 'function' && r.same && r.warm.join() === 'true,false' && r.cases > 300 && !r.wrong.length
+      && /hair/.test(r.named) && r.meshes.n > 5 && r.meshes.tri && r.rgba?.length === 4 && r.rgba[3] > 128 && r.outside === null && r.drawSame === 0
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} @livliv-dev/player/runtime: the same renderer as Player's, warm-up ${r.warm.join('/')} (Player/runtime), layersAt() as livliv.ai's pickPosed at ${r.cases - r.wrong.length} of ${r.cases} points in 4 poses (${r.named}), ${r.meshes.n} meshes${ok ? '' : `: ${JSON.stringify({ ...r, wrong: r.wrong.slice(0, 5) })}`}`)
+  }
+
   // long hair's swing (see runSway), on a character with long hair
   {
     const id = ids.find((i) => i === 'f05') ?? ids[0]

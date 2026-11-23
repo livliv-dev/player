@@ -2,7 +2,7 @@
 
 A lightweight 2.5D character player for the web. `Player` animates a LivLiv model (a `.livliv` package, or its folder:
 `model.json` and `textures/`) on a `<canvas>` with WebGL2; VRM and PNGTuber characters play on the same API through
-`@livliv-dev/player/body`. The core has no dependencies (~75 KB minified, ~30 KB gzipped, the renderer and the idle motion included).
+`@livliv-dev/player/body`. The core has no dependencies (~110 KB minified, ~44 KB gzipped, the renderer and the idle motion included).
 Lip sync and face tracking are separate imports, so you only ship them if you use them.
 
 > Install it with `npm install @livliv-dev/player`, or build it from this repository (see [Building](#building)).
@@ -489,6 +489,46 @@ start at 1 with each load (a body's files carry none); `setTuning()` changes the
 It draws no mark and has no `poke` or `canvasToModel`;
 `view.head` is not used. `onContextLost` and `dispose({ release })` are for a VRM; a PNGTuber has no context to lose. Live2D models (`.moc3`) are not supported:
 reading them takes Live2D's proprietary Cubism Core, under its own licence.
+
+## Advanced: `@livliv-dev/player/runtime`
+
+The renderer and the motion modules underneath `Player` and `BodyPlayer`, for code that runs its own frame loop and
+drives them itself (livliv.ai does): `Puppet`, `IdleDriver`, `LivelyIdle` (`IDLE_STYLE`, `pointAt`), `ActionPlayer`,
+`TalkMotion`, `FaceTracker` (`LOST_AFTER`, `V`, `loadFaceModel`), `VoiceMeter`, `SpeechPlayer` (`envelope`), the face
+traces (`synthTrace` …), `readModel` with `LIMITS` and `keyformsFit`, the full-body framing (`fitBox`, `Fit`), the mark's
+drawing (`brand`), and their types.
+
+**It is outside the compatibility promise of the other entries**: it is the runtime as it is, and a minor version may
+change it. Pin the exact version (`"@livliv-dev/player": "0.6.0"`, not `^0.6.0`) and read the changelog before moving on.
+It shares its code with the other entries, so a page importing both carries one copy; MediaPipe still loads only when
+face tracking starts.
+
+```js
+import { Puppet, defaultParams } from '@livliv-dev/player/runtime'
+
+const p = new Puppet(canvas)
+await p.load('/characters/k01/')
+Object.assign(p.params, { angleX: 15 })
+p.update(1 / 60); p.render()                     // your loop: update(dt), then render()
+```
+
+What the high-level players add on top is theirs, not the renderer's. The idle motion, the drivers and the mark are not
+in `Puppet`, and neither is the first frame's warm-up: `puppet.prewarm` is off by default (Player turns it on; see the
+changelog for 0.6.0). The feel settings are `puppet.tuning`, read each frame; after changing `turn` or `nod` on a model
+with keyforms, call `puppet.retune()`.
+
+For tools that ask what is drawn where (an editor's picking, QA), three methods read the last frame without changing it:
+
+- `meshes()`: each layer drawn, bottom first: `{ id, group, role, clip, rest, out, tri }`, the vertices at rest and as
+  drawn (model px, x y pairs) and the triangles. A view of the renderer's own arrays, typed read-only, good until the
+  next frame: never write to it.
+- `rgbaAt(id, x, y)`: a layer's own picture at a point of its place at rest (model px), straight RGBA 0–255; null outside
+  it. Read back from the GPU: for a click, not for every frame.
+- `layersAt(px, py, { faint = 8, solid = 2 })`: the layers under a drawing-buffer pixel in the last frame, whatever the
+  pose, top first: `{ at, layers: [{ id, role, group, rgba, rest }] }`. Each is looked up through its own mesh, so a
+  turned head still names the hair it shows, and `rest` is the place in the layer's picture. A layer counts where its
+  alpha is at least `faint`, an iris only inside its eye's whites; the walk stops after `solid` layers at least half
+  opaque.
 
 ## Untrusted files
 

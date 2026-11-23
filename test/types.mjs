@@ -22,6 +22,7 @@ import { createSpeech, startLipSync, type ClipHooks, type LipSync } from '${name
 import { BODY_LIMIT, BodyPlayer, LivLivError as FromBody, type Body } from '${name}/body'
 import { PngBody } from '${name}/png'
 import { VrmBody } from '${name}/vrm'
+import { Puppet, LIMITS, V, keyformsFit, readModel, LivelyIdle, IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand, type MeshView, type LayerHit, type Fit as RuntimeFit } from '${name}/runtime'
 declare const canvas: HTMLCanvasElement
 const player = new Player(canvas, { parameterProfile: {} })
 player.parameterProfile = { angleX: { input: [-20, 20], output: [-30, 30], curve: 1, smoothing: .2 } }
@@ -100,6 +101,16 @@ player.tuning.turn = 2
 player.setTuning({ turns: 2 })
 // @ts-expect-error a setting is a number
 player.setTuning({ blink: 'fast' })
+// the advanced entry: the renderer, its inspection methods typed read-only
+declare const puppet: Puppet
+const views: readonly MeshView[] = puppet.meshes()
+const hit: LayerHit | undefined = puppet.layersAt(1, 2, { solid: 3 }).layers[0]
+const rgba: [number, number, number, number] | null = puppet.rgbaAt('face', 1, 2)
+puppet.prewarm = true; puppet.retune()
+const fit: RuntimeFit = 'whole'
+void [views, hit, rgba, fit, LIMITS.layers, V, keyformsFit, readModel, new LivelyIdle(), IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand.drawWatermark]
+// @ts-expect-error a mesh is a view: not written to
+views[0].out[0] = 1
 // the types are real, not any: these must be errors
 // @ts-expect-error a switch now: setAway
 player.act('away')

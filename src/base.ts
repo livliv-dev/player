@@ -9,6 +9,7 @@ import { ActionPlayer, type ActionId as AnyAction } from './runtime/actions'
 import { uiLang } from './runtime/format'
 import { PARAM_RANGES, defaultParams, type Params } from './runtime/params'
 import type { Tuning } from './runtime/puppet'
+import { factor } from './feel'
 import { LivLivError } from './errors'
 import { Idle, type Seen } from './follow'
 import { releaseCanvas } from './release'
@@ -176,9 +177,6 @@ function inRange(P: Params) {
   }
 }
 const finite = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
-/** a feel setting as the player reads it: a number from 0 up, anything else (missing, null, NaN, below 0) the default 1
- *  @internal */
-export const factor = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 1)
 /** every feel setting at its default: what a character that says nothing plays with
  *  @internal */
 export const defaultFeel = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })

@@ -726,6 +726,76 @@
     return { same: offFile.map((d, i) => differ(d, offSet[i])), swings: on.map((d, i) => differ(d, offSet[i])) }
   }
 
+  /** the advanced entry, @livliv-dev/player/runtime: the same renderer as Player's (one copy of the code), its exports, the
+   *  warm-up off there and on in Player, and the inspection methods: meshes(), rgbaAt(), layersAt() against livliv.ai's own
+   *  pickPosed (written out here from meshes() and rgbaAt()), at rest and in turned poses */
+  window.runRuntime = async (id) => {
+    const R = await import('../dist/runtime.js'), out = {}
+    out.exports = ['Puppet', 'IdleDriver', 'LivelyIdle', 'IDLE_STYLE', 'pointAt', 'FaceTracker', 'LOST_AFTER', 'V', 'VoiceMeter', 'SpeechPlayer',
+      'envelope', 'TalkMotion', 'ActionPlayer', 'readModel', 'LIMITS', 'keyformsFit', 'defaultParams', 'defaultTuning', 'PARAM_RANGES', 'synthTrace', 'fitBox']
+      .filter((k) => R[k] === undefined)
+    out.brand = typeof R.brand?.drawWatermark
+    const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+    await p.load(`../characters/${id}/`)
+    out.same = p.puppet instanceof R.Puppet
+    out.warm = [p.puppet.prewarm, new R.Puppet(document.createElement('canvas')).prewarm]
+    const pu = p.puppet
+    /** livliv.ai's pickPosed core, from meshes() and rgbaAt() */
+    const restOn = (m, X, Y) => {
+      const o = m.out, r = m.rest, t = m.tri
+      for (let i = 0; i < t.length; i += 3) {
+        const a = 2 * t[i], b = 2 * t[i + 1], c = 2 * t[i + 2]
+        const ax = o[a], ay = o[a + 1], bx = o[b], by = o[b + 1], cx = o[c], cy = o[c + 1]
+        if ((X < ax && X < bx && X < cx) || (X > ax && X > bx && X > cx) || (Y < ay && Y < by && Y < cy) || (Y > ay && Y > by && Y > cy)) continue
+        const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if (Math.abs(d) < 1e-6) continue
+        const u = ((by - cy) * (X - cx) + (cx - bx) * (Y - cy)) / d, v = ((cy - ay) * (X - cx) + (ax - cx) * (Y - cy)) / d, w = 1 - u - v
+        if (u < -1e-4 || v < -1e-4 || w < -1e-4) continue
+        return [u * r[a] + v * r[b] + w * r[c], u * r[a + 1] + v * r[b + 1] + w * r[c + 1]]
+      }
+      return null
+    }
+    const site = (px, py) => {
+      const [sx, sy, ox, oy, w, h] = pu.lastView, X = ((2 * px) / w - 1 - ox) / sx, Y = ((2 * py) / h - 1 - oy) / sy
+      const M = pu.meshes(), byId = new Map(M.map((m) => [m.id, m])), hits = []
+      let solid = 0
+      for (let i = M.length - 1; i >= 0 && solid < 2; i--) {
+        const m = M[i], rest = restOn(m, X, Y), c = rest && pu.rgbaAt(m.id, rest[0], rest[1])
+        if (!rest || !c || c[3] < 8) continue
+        const clip = m.clip ? byId.get(m.clip) : undefined
+        if (clip) { const rc = restOn(clip, X, Y), a = rc && pu.rgbaAt(clip.id, rc[0], rc[1]); if (!a || a[3] < 128) continue }
+        hits.push(`${m.id}@${c[3].toFixed(0)}`)
+        if (c[3] >= 128) solid++
+      }
+      return hits.join(',')
+    }
+    const poses = [{}, { angleX: 25, angleY: 10 }, { angleX: -20, angleZ: 12, eyeBallX: 1 }, { eyeLOpen: 0, eyeROpen: 0 }]
+    out.cases = 0; out.wrong = []; out.named = new Set()
+    for (const P of poses) {
+      Object.assign(p.params, { angleX: 0, angleY: 0, angleZ: 0, eyeBallX: 0, eyeLOpen: 1, eyeROpen: 1 }, P); p.resize()
+      const w = canvas.width, h = canvas.height
+      for (let gy = 1; gy < 12; gy++) for (let gx = 1; gx < 9; gx++) {
+        const px = Math.round((gx / 9) * w), py = Math.round((gy / 12) * h)
+        const got = pu.layersAt(px, py), mine = got.layers.map((l) => `${l.id}@${l.rgba[3].toFixed(0)}`).join(','), ref = site(px, py)
+        out.cases++
+        if (mine !== ref) out.wrong.push(`${JSON.stringify(P)} ${px},${py}: ${mine} / ${ref}`)
+        got.layers.forEach((l) => out.named.add(l.group))
+      }
+    }
+    out.named = [...out.named].sort().join(',')
+    const meshes = pu.meshes()
+    out.meshes = { n: meshes.length, tri: meshes.every((m) => m.tri.length % 3 === 0 && m.rest.length === m.out.length) }
+    const face = meshes.find((m) => m.id === 'face') ?? meshes.find((m) => m.group === 'head')
+    const mid = (k) => { let t = 0; for (let i = k; i < face.rest.length; i += 2) t += face.rest[i]; return t / (face.rest.length / 2) }
+    out.rgba = face ? pu.rgbaAt(face.id, mid(0), mid(1)) : null
+    out.outside = pu.rgbaAt(meshes[0].id, -10, -10)
+    // reading never changes a frame
+    const before = pixels(); pu.layersAt(10, 10); pu.rgbaAt(meshes[0].id, 1, 1); p.resize()
+    out.drawSame = differ(before, pixels())
+    p.dispose()
+    return out
+  }
+
   /** hostile packages: each must be refused (or, for broken keyforms, played on the rig alone), the model before kept */
   window.runHostile = async (id, kfId) => {
     const player = new Player(canvas, { autoplay: false, followPointer: false })
