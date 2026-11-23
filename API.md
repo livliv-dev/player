@@ -1,8 +1,8 @@
 # @livliv-dev/player API
 
 A lightweight 2.5D character player for the web. `Player` animates a LivLiv model (a `.livliv` package, or its folder:
-`model.json` and `textures/`) on a `<canvas>` with WebGL2; VRM and PNGTuber characters play on the same API through
-`@livliv-dev/player/body`. The core has no dependencies (~110 KB minified, ~44 KB gzipped, the renderer and the idle motion included).
+`model.json` and `textures/`) on a `<canvas>` with WebGL2; VRM, PNGTuber and Mesh Avatar Studio (`.mavatar`) characters
+play on the same API through `@livliv-dev/player/body`. The core has no dependencies (~110 KB minified, ~44 KB gzipped, the renderer and the idle motion included).
 Lip sync and face tracking are separate imports, so you only ship them if you use them.
 
 > Install it with `npm install @livliv-dev/player`, or build it from this repository (see [Building](#building)).
@@ -459,18 +459,22 @@ is called when a driver is removed.
 
 A `BodyPlayer` plays a character a `Body` draws, with Player's API where it applies: `load()`, `params`, the idle
 motion, `setExpression()`, `act()`, `lookAt()`, `blink()`, `use()` and the loop. Lip sync and face tracking work on it
-as on a Player. Two bodies come with the package:
+as on a Player. Three bodies come with the package:
 
 ```js
 import { BodyPlayer } from '@livliv-dev/player/body'
 import { PngBody } from '@livliv-dev/player/png'
-import { VrmBody } from '@livliv-dev/player/vrm'    // needs three and @pixiv/three-vrm
+import { VrmBody } from '@livliv-dev/player/vrm'          // needs three and @pixiv/three-vrm
+import { MavatarBody } from '@livliv-dev/player/mavatar'  // needs mesh-avatar
 
 const png = new BodyPlayer(canvasA, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png', blink: 'me-blink.png' })  // name -> URL or Blob
 
 const vrm = new BodyPlayer(canvasB, new VrmBody())
 await vrm.load('/avatars/me.vrm')            // a URL, a File, or files picked
+
+const mesh = new BodyPlayer(canvasC, new MavatarBody())
+await mesh.load('/avatars/me.mavatar')       // a URL, a File, or its unpacked files picked
 ```
 
 - **PNGTuber** (`@livliv-dev/player/png`): pictures named `closed` and `open` (the mouth), optionally `blink` and
@@ -499,19 +503,49 @@ await vrm.load('/avatars/me.vrm')            // a URL, a File, or files picked
   Node constraints that depend on each other in a circle are left out, with a warning in the console, rather than the
   whole file refused. A file that cannot play says why in the exporter's terms (bones the humanoid lacks, a VRM without
   its meta, a VRM version this player does not read).
+- **Mesh Avatar Studio** (`@livliv-dev/player/mavatar`): a `.mavatar` from
+  [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio), one picture made into a mesh avatar, drawn by
+  the format's own runtime, [mesh-avatar](https://www.npmjs.com/package/mesh-avatar) (MIT), which you install
+  (`npm install mesh-avatar@0.9.0`: an optional peer dependency, pinned to the version played and tested here, so the
+  rest of the package does not need it). `load()` takes the `.mavatar` (a URL, a `File`) or its unpacked files picked
+  together (`rig.json`, `avatar.json`, the built pictures, `sprites.json`, `overlays.json` and the pictures they list;
+  by name, without folders; a folder's URL is not a source). The Player's pose moves it: the head turns and tilts, the
+  body sways and breathes, the eyes blink and look, the brows rise and fall, the mouth opens with `mouthOpen` in the
+  shape of `vowel`, and the smile param brings its happy face. Its expressions are mesh-avatar's live expressions, with
+  its numbers, by weight: `laugh` (its own "smile", the eyes shut in a smile; `smile` is the Player's), `shy`,
+  `surprise`, `halfLidded`, `angry`, `sad` and `wink`; the strongest from a weight of 0.35 also shows the avatar's drawn
+  eyes and closed mouth for it. Its hair, tassels and garments swing by its own physics (`body.sway`, or
+  `new MavatarBody({ sway })`: 0 still, 1 as the avatar was made, more to swing further) and its arms and legs move by
+  themselves. Its own idle motions, reactions, lip sync from a voice level, lighting and overlays stay off: the
+  Player's idle, drivers and face tracking move it, so a recorded pose draws the same picture again. Without a bundler,
+  map `mesh-avatar` in an import map, as `example/mavatar.html` does.
+  mesh-avatar fits the avatar into the canvas standing on its bottom, as Mesh Avatar Studio shows it, and the pose's
+  move (a hop, the view's `x`, `y` and `zoom`) moves and scales that picture. It draws on a canvas of the body's own, at
+  exactly the size the player draws (a `renderPose` size, a canvas in no page), and the picture is copied into the
+  player's canvas: so the player's canvas draws in 2D, as a PNGTuber's does, and `context()` is the WebGL2 context of the
+  avatar's own canvas, one per character: `contextLost`, `onContextLost` and `dispose({ release })` work as for a VRM.
+  How many play smoothly: mesh-avatar moves each avatar's mesh on the page's main thread, some 3–4 ms a frame for one
+  made in Mesh Avatar Studio (Apple M4). Three run at 60 fps there; six on one thread (a page and a window it opened)
+  about 47–50; a slower machine drops frames sooner. A page that offers many should say so.
+  `checkMavatar(file)` checks a `.mavatar` (or its unpacked files) as `load()` does, before anything is decoded, and
+  resolves with its name: for a page that takes files from people and would say no before it places a character.
+  An avatar's `avatar.json` gives a name, an author and a licence, a free text: `load()` gives them in `model.meta`
+  (`MavatarTerms`): `author`, `license` (`id` when the text starts with one, such as an SPDX id or a `LicenseRef-`, and
+  `url`, the first in it), `text` (the licence as written) and `raw`. The player does not enforce them; a page playing
+  other people's avatars should show them and keep to them.
 - **Your own**: anything with `load(files)`, `render(canvas, pose, w, h, dt)`, `head()` and `dispose()` (the `Body`
   type), and if it cares which canvas it gets, `attach(canvas)`. One that draws with WebGL can also have `context()`, returning
   its context, so that `contextLost` and `dispose({ release })` work for it. `pose` has the params after the idle motion and the
   drivers, the picture's `move` and each expression's weight. `anchor(name)`, optional, gives its
   [attachment points](#attachment-points).
 
-A failed `load()` keeps the character before, as on a Player. A canvas has one kind of context for good: a PNGTuber draws in 2D, a Player and a VRM in WebGL2, so a PNGTuber on a canvas that was a Player's (or the other way round) is refused with an error; give it its own.
+A failed `load()` keeps the character before, as on a Player. A canvas has one kind of context for good: a PNGTuber and a `.mavatar` draw in 2D, a Player and a VRM in WebGL2, so a PNGTuber on a canvas that was a Player's (or the other way round) is refused with an error; give it its own.
 A BodyPlayer takes the same `load()` options and its errors are the same, with one difference: a Body swaps its character
 inside its own `load`, which cannot be interrupted, so a character already going in finishes and the newer one follows.
 Downloads and loads still waiting are replaced, as on a Player. Its [feel settings](#feel-settings-tuning-and-settuning)
 start at 1 with each load (a body's files carry none); `setTuning()` changes them, and `blink`, `expr` and `mouth` count.
 It draws no mark and has no `poke` or `canvasToModel`;
-`view.head` is not used. `onContextLost` and `dispose({ release })` are for a VRM; a PNGTuber has no context to lose. Live2D models (`.moc3`) are not supported:
+`view.head` is not used. `onContextLost` and `dispose({ release })` are for a VRM and a `.mavatar`; a PNGTuber has no context to lose. Live2D models (`.moc3`) are not supported:
 reading them takes Live2D's proprietary Cubism Core, under its own licence.
 
 ## Advanced: `@livliv-dev/player/runtime`
@@ -578,7 +612,20 @@ These limits are `LIMITS` in `src/runtime/format.ts`; the largest model LivLiv h
 A VRM is looked through before three.js's glTF loader parses it (`VRM_LIMITS` in `@livliv-dev/player/vrm`): a binary glTF, with
 nothing outside itself (a file naming an outside URL is refused, so it cannot make the page fetch anything), 32 MB of
 JSON, 16 777 216 vertices, pictures of 8192 px a side and 536 870 912 pixels in all, read from their headers before they are
-decoded. Security reports: [SECURITY.md](SECURITY.md).
+decoded. A `.mavatar` is read by mesh-avatar, which takes stored ZIP entries only (no compression, no encryption, no
+paths outside the archive), 200 entries and 64 MB each at most, and checks its rig and files. Before any of that is
+built, the player holds it to `MAVATAR_LIMITS` (`@livliv-dev/player/mavatar`), since mesh-avatar builds its meshes from
+the rig's numbers, not from the pictures: every picture measured from its header (8192 px a side,
+67 108 864 pixels in all); each JSON file 1 MB; the rig's picture size the base picture's own; mesh cells of 2 px at
+least; the meshes' vertices, counted as mesh-avatar builds them (one mesh per eye part, accessory, garment, sprite and
+overlays.json entry, an overlay over its picture's opaque part), 131 072 in all, about three times Mesh Avatar Studio's
+Miko sample (41 575); any list in the rig 512 entries; 64 hair strands, 32 accessories (each named once), 16 garments of
+64 columns and rows, 64 overlays (each a plain file of it), 128 sprites and 4 eyes at most, each of those a mesh drawn
+every frame. The only pictures decoded on the way are the overlays, once each, to find their opaque part as mesh-avatar
+does. All of a body's files are 256 MB at most (`BODY_LIMIT`). mesh-avatar keeps
+every picture it has loaded for the life of the page; the player gives the same avatar loaded again the same package,
+so playing it again does not add to that, while each different avatar does. Security reports:
+[SECURITY.md](SECURITY.md).
 
 ## Format version
 
@@ -621,7 +668,7 @@ not yet on phones or in in-app WebViews.
 
 ```sh
 npm install
-npm run build          # dist/: index.js, body.js, png.js, vrm.js, tracking.js, voice.js (ES modules), chunks/ and types/
+npm run build          # dist/: index.js, body.js, png.js, vrm.js, mavatar.js, tracking.js, voice.js (ES modules), chunks/ and types/
 ```
 
 Examples: serve this repository's folder with any static server (for example `python3 -m http.server`) and open
@@ -699,7 +746,8 @@ character that follows it (a hat, a sticker, a name tag): `{ x, y, rotation, sca
 canvas from its top left, `rotation` in radians (clockwise) and `scale` a width that fits there (about the head's, or
 the shoulders' for the torso) as a share of the canvas's width. Call it after a frame, in `onFrame` for one. It is null
 before the model's first frame, and for a point a body does not have. The point moves with actions, the view and the
-body's own motion (on a full-body character, its sway, crouch and dip too); it is a point and an angle, not a skeleton, and does not bend what you put there. A `Body` of your
+body's own motion (on a full-body character, its sway, crouch and dip too); it is a point and an angle, not a skeleton, and does not bend what you put there. On a
+`.mavatar`, the head's point is the middle of its rig's head, turned with the head's roll, and the torso's its chest. A `Body` of your
 own can have `anchor(name)`; without it only `'head'` is there, from its `head()`.
 
 ### Motion strength

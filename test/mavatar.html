@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Mesh avatar smoke test</title>
+<script type="importmap">{ "imports": {
+  "mesh-avatar": "/node_modules/mesh-avatar/dist/index.js"
+} }</script>
+<script type="module">
+  // Run by smoke.mjs: a Mesh Avatar Studio avatar (test/fixtures/nana.mavatar, made by LivLiv from Nana) on a
+  // BodyPlayer: it loads from a URL, a file and its unpacked files alike, draws each pose of the Player's in its own
+  // way, at the exact size asked for, with the Player's move; its expressions are mesh-avatar's own numbers; bad files
+  // are refused with the right code, and the context's loss and release go as a Player's do.
+  import { BodyPlayer } from '../dist/body.js'
+  import { MavatarBody, checkMavatar } from '../dist/mavatar.js'
+  import { loadMeshAvatar, packAvatar, unpackAvatar } from 'mesh-avatar'
+
+  const g = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
+  const read = (canvas) => {
+    g.canvas.width = canvas.width; g.canvas.height = canvas.height
+    g.clearRect(0, 0, canvas.width, canvas.height); g.drawImage(canvas, 0, 0)
+    return g.getImageData(0, 0, canvas.width, canvas.height)
+  }
+  const covered = (d) => { let n = 0; for (let i = 3; i < d.data.length; i += 4) if (d.data[i] > 0) n++; return n / (d.data.length / 4) }
+  /** the share of pixels that differ by more than 8 in any channel, and where they are (their box, in canvas shares) */
+  const differ = (a, b, from = [0, 0, 1, 1]) => {
+    let n = 0, all = 0, x0 = 1, y0 = 1, x1 = 0, y1 = 0
+    const [fx, fy, tx, ty] = [from[0] * a.width, from[1] * a.height, from[2] * a.width, from[3] * a.height].map(Math.round)
+    for (let y = fy; y < ty; y++) for (let x = fx; x < tx; x++) {
+      const i = 4 * (y * a.width + x)
+      all++
+      if (Math.max(...[0, 1, 2, 3].map((k) => Math.abs(a.data[i + k] - b.data[i + k]))) > 8) { n++; x0 = Math.min(x0, x / a.width); x1 = Math.max(x1, x / a.width); y0 = Math.min(y0, y / a.height); y1 = Math.max(y1, y / a.height) }
+    }
+    return { share: n / all, box: n ? [x0, y0, x1, y1] : null }
+  }
+  /** the middle of the opaque pixels in a band of rows */
+  const middle = (d, y0, y1) => {
+    let sx = 0, n = 0
+    for (let y = Math.round(y0 * d.height); y < Math.round(y1 * d.height); y++) for (let x = 0; x < d.width; x++) if (d.data[4 * (y * d.width + x) + 3] > 128) { sx += x; n++ }
+    return n ? sx / n / d.width : null
+  }
+  /** where the dark of the eyes is (the irises) in a box: its middle, darkness-weighted, in canvas shares */
+  const darkAt = (d, [x0, y0, x1, y1]) => {
+    let sx = 0, sy = 0, n = 0
+    for (let y = Math.round(y0 * d.height); y < Math.round(y1 * d.height); y++) for (let x = Math.round(x0 * d.width); x < Math.round(x1 * d.width); x++) {
+      const i = 4 * (y * d.width + x), k = Math.max(0, 200 - (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3) * d.data[i + 3] / 255
+      sx += x * k; sy += y * k; n += k
+    }
+    return n ? [sx / n / d.width, sy / n / d.height] : null
+  }
+  const REST = { angleX: 0, angleY: 0, angleZ: 0, eyeLOpen: 1, eyeROpen: 1, eyeBallX: 0, eyeBallY: 0, browLY: 0, browRY: 0, mouthOpen: 0, smile: 0, vowel: 0, bodyX: 0, bodyZ: 0, breath: 0 }
+  const pose = (params = {}, expr = {}, move = {}) => ({ params: { ...REST, ...params }, move: { x: 0, y: 0, s: 1, ...move }, expr, view: { x: 0, y: 0, zoom: 1, head: false } })
+  const player = async (source, css = 'width: 300px; height: 400px', options = {}) => {
+    const c = document.createElement('canvas')
+    c.style.cssText = css
+    document.body.append(c)
+    const p = new BodyPlayer(c, new MavatarBody(), { autoplay: false, idle: false, followPointer: false, maxPixelRatio: 1, ...options })
+    if (source) await p.load(source)
+    return p
+  }
+  const codeOf = (e) => e?.code ?? e?.name ?? String(e)
+  const fixture = async (url) => new Uint8Array(await (await fetch(url)).arrayBuffer())
+  /** its unpacked files by name, as a picked folder gives them */
+  const unpacked = (bytes, change = {}) => {
+    const files = new Map()
+    for (const [path, data] of Object.entries(unpackAvatar(bytes))) if (!(path in change) || change[path]) files.set(path.split('/').pop(), new Blob([change[path] ?? data]))
+    return files
+  }
+  const archive = (bytes, change = {}) => {
+    const files = unpackAvatar(bytes)
+    for (const [k, v] of Object.entries(change)) if (v) files[k] = v; else delete files[k]
+    return new File([packAvatar(files)], 'changed.mavatar')
+  }
+
+  /** each pose drawn, against the rest pose: where it changed. Shots (small PNGs) for a person to look at */
+  window.runMavatarPoses = async (url, shots = false) => {
+    const p = await player(url)
+    const info = p.model, size = [300, 400], out = { info: { name: info.name, format: info.format, expressions: info.expressions.map((e) => e.id), meta: info.meta && { author: info.meta.author, license: info.meta.license, text: !!info.meta.text } } }
+    const draw = (ps, dt = 0) => { p.renderPose(ps, dt, size); return read(p.canvas) }
+    const rest = draw(pose())
+    out.size = [p.canvas.width, p.canvas.height]
+    out.covered = covered(rest)
+    out.head = p.body.head()
+    out.anchors = { head: p.getAnchor('head'), body: p.getAnchor('body') }
+    const H = out.head, face = [H.x - H.rx, H.y - H.ry, H.x + H.rx, H.y + H.ry].map((v) => Math.max(0, Math.min(1, v)))
+    const cases = {
+      yawRight: pose({ angleX: 25 }), yawLeft: pose({ angleX: -25 }), up: pose({ angleY: 25 }), rollRight: pose({ angleZ: 25 }), bodyRoll: pose({ bodyZ: 9 }),
+      blink: pose({ eyeLOpen: 0, eyeROpen: 0 }), leftEyeShut: pose({ eyeLOpen: 0 }), mouthA: pose({ mouthOpen: 1 }), mouthI: pose({ mouthOpen: 0.7, vowel: 1 }),
+      mouthO: pose({ mouthOpen: 0.7, vowel: -1 }), gazeRight: pose({ eyeBallX: 1 }), smile: pose({ smile: 1 }),
+      ...Object.fromEntries(info.expressions.filter((e) => e.id !== 'smile').map((e) => [e.id, pose({}, { [e.id]: 1 })])),
+      hop: pose({}, {}, { y: 0.2 }), small: pose({}, {}, { s: 0.5 }),
+    }
+    out.poses = {}
+    const sheet = []
+    for (const [name, ps] of Object.entries(cases)) {
+      const d = draw(ps)
+      const all = differ(rest, d), atFace = differ(rest, d, face)
+      out.poses[name] = { share: all.share, face: atFace.share, box: all.box, covered: covered(d) }
+      if (shots) sheet.push([name, p.canvas.toDataURL('image/png')])
+    }
+    // which way the head and the picture went: the hair's middle in the upper rows
+    const at = (ps) => { const d = draw(ps); return { top: middle(d, 0.1, 0.25), low: middle(d, 0.75, 0.95) } }
+    out.lean = { rest: at(pose()), rollRight: at(pose({ angleZ: 25 })), yawRight: at(pose({ angleX: 25 })), bodyRoll: at(pose({ bodyZ: 9 })), right: at(pose({}, {}, { x: 0.3 })) }
+    // the gaze goes where it is told: the irises' dark to the right, left, up, down of where it rests (the eyes' box from a blink)
+    const eyes = out.poses.blink.box
+    out.gaze = Object.fromEntries(Object.entries({ rest: pose(), right: pose({ eyeBallX: 1 }), left: pose({ eyeBallX: -1 }), up: pose({ eyeBallY: 1 }), down: pose({ eyeBallY: -1 }) })
+      .map(([k, ps]) => [k, darkAt(draw(ps), eyes)]))
+    // the same pose twice: the same picture (no state between frames without time)
+    out.again = differ(draw(pose({ angleX: 25 })), draw(pose({ angleX: 25 }))).share
+    // time: the hair swings on after a turn
+    draw(pose(), 0)
+    const turned = draw(pose({ angleX: 25 }), 0)
+    out.swing = differ(turned, draw(pose({ angleX: 25 }), 0.1)).share
+    if (shots) out.sheet = sheet
+    p.dispose()
+    return out
+  }
+
+  /** a URL, a File and the unpacked files draw the same picture; a detached canvas takes the exact size given */
+  window.runMavatarSources = async (url) => {
+    const bytes = await fixture(url), size = [240, 320]
+    const shot = async (source) => { const p = await player(source); p.renderPose(pose({ angleX: 10 }), 0, size); const d = read(p.canvas); const name = p.model.name; p.dispose(); return { d, name } }
+    const a = await shot(url), b = await shot(new File([bytes], 'nana.mavatar')), c = await shot(unpacked(bytes))
+    const lone = document.createElement('canvas')  // in no page: no CSS size
+    const q = new BodyPlayer(lone, new MavatarBody(), { autoplay: false, idle: false, followPointer: false })
+    await q.load(url)
+    q.renderPose(pose(), 0, [333, 517])
+    const out = { names: [a.name, b.name, c.name], file: differ(a.d, b.d).share, folder: differ(a.d, c.d).share, lone: { size: [lone.width, lone.height], covered: covered(read(lone)) } }
+    q.renderPose(pose(), 0, [160, 120])
+    out.lone.wide = { size: [lone.width, lone.height], covered: covered(read(lone)) }
+    q.dispose()
+    return out
+  }
+
+  /** the same avatar loaded again plays from the same package (mesh-avatar keeps what it loaded by URL): two at once, one
+   *  after both are gone; another avatar has its own */
+  window.runMavatarShared = async (url) => {
+    const bytes = await fixture(url), base = (p) => p.body.shown.pkg.assets['base.png']
+    const a = await player(url), b = await player(new File([bytes], 'again.mavatar'))
+    const out = { together: base(a) === base(b) }
+    const first = base(a); a.dispose(); b.dispose()
+    const c = await player(url)
+    out.after = base(c) === first
+    const other = await player(archive(bytes, { 'avatar.json': new TextEncoder().encode('{"format":"mesh-avatar","version":1,"name":"Other"}') }))
+    out.other = base(other) !== first && other.model.name === 'Other'
+    c.dispose(); other.dispose()
+    return out
+  }
+
+  /** overlays as mesh-avatar meshes them, over each picture's opaque part: a small one (glasses) passes and plays; forty
+   *  entries naming one opaque base-sized picture would build forty meshes, and are refused */
+  window.runMavatarOverlays = async (url) => {
+    const bytes = await fixture(url), files = unpackAvatar(bytes), [w, h] = JSON.parse(new TextDecoder().decode(files['built/layers.json'])).size
+    const c = new OffscreenCanvas(w, h), g = c.getContext('2d'); g.fillStyle = '#223'; g.fillRect(w * 0.35, h * 0.24, w * 0.3, h * 0.05)
+    const glasses = new Uint8Array(await (await c.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    const withOverlays = (file, n) => archive(bytes, { [`built/overlays/${file}.png`]: file === 'glasses' ? glasses : files['built/base.png'],
+      'built/overlays/overlays.json': new TextEncoder().encode(JSON.stringify({ version: 1, overlays: Array.from({ length: n }, (_, i) => ({ name: `o${i}`, file: `${file}.png` })) })) })
+    const out = {}
+    try { out.small = (await checkMavatar(withOverlays('glasses', 1))).name } catch (e) { out.small = codeOf(e) }
+    try { const p = await player(withOverlays('glasses', 1)); out.plays = p.model.name; p.dispose() } catch (e) { out.plays = codeOf(e) }
+    try { await checkMavatar(withOverlays('base', 40)); out.forty = 'passed' } catch (e) { out.forty = codeOf(e) }
+    return out
+  }
+
+  /** files that are not right, refused with the code that says why; the character before stays */
+  window.runMavatarRefusals = async (url, bomb) => {
+    const bytes = await fixture(url), out = {}
+    const tryLoad = async (source, p) => { try { await (p ?? await player()).load(source); return 'loaded' } catch (e) { return codeOf(e) } }
+    out.garbage = await tryLoad(new File([new Uint8Array(4096).fill(7)], 'x.mavatar'))
+    out.bomb = await tryLoad(archive(bytes, { 'built/base.png': new Uint8Array(await (await fetch(bomb)).arrayBuffer()) }))
+    out.badRig = await tryLoad(unpacked(bytes, { 'rig.json': new TextEncoder().encode('{"version": 1}') }))
+    out.missing = await tryLoad(unpacked(bytes, { 'built/hairmask.png': null }))
+    out.none = await tryLoad(new Map([['model.json', new Blob(['{}'])]]))
+    const c = document.createElement('canvas'); c.getContext('webgl2')
+    try { await new BodyPlayer(c, new MavatarBody(), { autoplay: false }).load(url); out.webglCanvas = 'loaded' } catch (e) { out.webglCanvas = codeOf(e) }
+    // a failed load leaves the avatar shown
+    const p = await player(url)
+    p.renderPose(pose(), 0, [200, 260]); const before = read(p.canvas)
+    out.after = await tryLoad(new File([new Uint8Array(64)], 'bad.mavatar'), p)
+    p.renderPose(pose(), 0, [200, 260])
+    out.kept = p.model?.name === 'Nana' && differ(before, read(p.canvas)).share < 0.0005
+    p.dispose()
+    return out
+  }
+
+  /** its expressions are mesh-avatar's: the same numbers its own live expressions settle at */
+  window.runMavatarExpressions = async (url) => {
+    const p = await player(url), body = p.body, out = {}
+    const c = document.createElement('canvas'); c.style.cssText = 'width: 100px; height: 140px'; document.body.append(c)
+    const own = await loadMeshAvatar(c, url, { manual: true })
+    own.setAutoIdle(false); own.setAutoMotion(false)
+    const settle = () => { for (let i = 0; i < 60; i++) own.advanceParameters(0.05) }  // 3 s, its expression eased all the way (no drawing)
+    const KEYS = ['eyeROpen', 'eyeLOpen', 'eyeSmile', 'eyeSmileL', 'blush', 'browY', 'browAngle', 'mouthOpen', 'mouthForm', 'gazeX', 'gazeY', 'angleY']
+    p.renderPose(pose(), 0, [100, 140])
+    const base = body.shown.avatar.getParameters()
+    for (const e of p.model.expressions.filter((x) => x.id !== 'smile')) {
+      p.renderPose(pose({}, { [e.id]: 1 }), 0, [100, 140])
+      const ours = body.shown.avatar.getParameters()
+      own.setParameters(base, 1)
+      own.setExpression({ laugh: 'smile' }[e.id] ?? e.id)
+      settle()
+      const theirs = own.getParameters()
+      out[e.id] = Math.max(...KEYS.map((k) => Math.abs((ours[k] ?? 0) - (theirs[k] ?? 0))))
+      own.setExpression('neutral'); settle()
+    }
+    own.destroy()
+    p.dispose()
+    return out
+  }
+
+  /** the context: its loss is told, a load after it says so; dispose gives it up; release spends the canvas */
+  window.runMavatarContext = async (url) => {
+    const p = await player(url), out = { told: 0 }
+    p.onContextLost = () => out.told++
+    p.renderPose(pose(), 0, [100, 140])
+    const gl = p.body.context()
+    out.before = gl.isContextLost()
+    gl.getExtension('WEBGL_lose_context').loseContext()
+    await new Promise((r) => setTimeout(r, 50))
+    out.lost = p.contextLost
+    try { await p.load(url); out.load = 'loaded' } catch (e) { out.load = codeOf(e) }
+    p.dispose()
+    const q = await player(url), qgl = q.body.context()
+    q.dispose()
+    out.disposed = { context: q.body.context(), lost: qgl.isContextLost() }
+    const r = await player(url), canvas = r.canvas
+    r.dispose({ release: true })
+    await new Promise((res) => setTimeout(res, 20))
+    try { new BodyPlayer(canvas, new MavatarBody()); out.reuse = 'reused' } catch (e) { out.reuse = codeOf(e) }
+    return out
+  }
+  window.ready = true
+</script>

@@ -16,7 +16,7 @@
 
 - WebGL2, no dependencies, about 30 KB gzipped for the core
 - Lip sync (microphone, audio, video) and webcam face tracking (MediaPipe), both in the browser, imported only when you need them
-- Plays LivLiv, VRM and PNGTuber characters through the same API
+- Plays LivLiv, VRM, PNGTuber and Mesh Avatar Studio (`.mavatar`) characters through the same API
 - Full-body characters stand on the ground: they sway, crouch and dip with their feet in place, in the shot you pick
 - 23 featured characters in [`characters/`](characters/), ready to use
 
@@ -25,7 +25,7 @@
 - **Online**: the examples run on [livliv-dev.github.io/player](https://livliv-dev.github.io/player/).
 - **Here**: `npm install && npm run build`, serve this folder with any static server and open `/example/demo.html`
   (expressions, actions, microphone, camera; `?model=../characters/<id>/` picks another character).
-  `/example/png.html` and `/example/vrm.html` show a PNGTuber and a VRM.
+  `/example/png.html`, `/example/vrm.html` and `/example/mavatar.html` show a PNGTuber, a VRM and a Mesh Avatar Studio avatar.
 - **On livliv.ai**: each character's page there plays it with the same renderer. Start at
   [livliv.ai/discover](https://livliv.ai/discover).
 
@@ -67,23 +67,31 @@ button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
 await startFaceTracking(player)
 ```
 
-A VRM or a PNGTuber, on the same API:
+A VRM, a PNGTuber or a Mesh Avatar Studio avatar, on the same API:
 
 ```js
 import { BodyPlayer } from '@livliv-dev/player/body'
-import { VrmBody } from '@livliv-dev/player/vrm'    // needs three and @pixiv/three-vrm
+import { VrmBody } from '@livliv-dev/player/vrm'          // needs three and @pixiv/three-vrm
 import { PngBody } from '@livliv-dev/player/png'
+import { MavatarBody } from '@livliv-dev/player/mavatar'  // needs mesh-avatar
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')
 const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
+const mesh = new BodyPlayer(canvasC, new MavatarBody())
+await mesh.load('/avatars/me.mavatar')
 ```
 
 The whole API is in [API.md](API.md): options, params, expressions and actions, feel settings, drivers, recorded poses and attachment
-points, VRM and PNGTuber characters, the limits on untrusted files, the model package and the format version. The LivLiv package format (`.livliv`,
+points, VRM, PNGTuber and `.mavatar` characters, the limits on untrusted files, the model package and the format version. The LivLiv package format (`.livliv`,
 `model.json` v4) is in [FORMAT.md](FORMAT.md), with a JSON Schema in [`schema/`](schema/); packages exported before v4
 are described in [FORMAT-v3.md](FORMAT-v3.md) and still play.
+
+**New in 0.7 (not released yet):** Mesh Avatar Studio avatars (`.mavatar`) play on a `BodyPlayer` with
+`@livliv-dev/player/mavatar`, drawn by their own runtime, [mesh-avatar](https://www.npmjs.com/package/mesh-avatar) (MIT),
+which you install next to the player. The Player's idle motion, lip sync, face tracking and expressions move them. Pages
+written for 0.6 need no change. See [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody).
 
 **New in 0.6:** long hair swings below the shoulders as the head and body move (a model's `tuning.hair_sway` sets how
 far; 0 turns it off), and long hair lying on the body goes with the body, not the head (`tuning.hair_rest`). Blinks no
@@ -130,11 +138,13 @@ there, and [`index.json`](https://livliv-dev.github.io/player/characters/index.j
 
 ## Characters of your own
 
-You can bring in a PNGTuber's pictures, or a VRM (drawn with three.js); or make a character of your own from one
-picture on [livliv.ai](https://livliv.ai).
+You can bring in a PNGTuber's pictures, a VRM (drawn with three.js) or a Mesh Avatar Studio avatar (drawn by
+mesh-avatar); or make a character of your own from one picture on [livliv.ai](https://livliv.ai).
 
 - **A PNGTuber**: two pictures (mouth closed, mouth open), and two more with the eyes closed if you have them.
 - **A VRM**: from VRoid Studio or any tool that exports VRM 0.x or 1.0.
+- **A Mesh Avatar Studio avatar**: a `.mavatar` exported from [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio),
+  which makes a moving avatar from one picture.
 - **A LivLiv model**: make one from a picture on [livliv.ai](https://livliv.ai), then download its model package from
   the character's page (**Model package**): a `.livliv` file. Pass it to `load()` as it is (a URL, or the `File`
   someone picked), or unzipped as a folder. Full-body characters play too (from 0.5); livliv.ai does not offer their
@@ -174,7 +184,7 @@ git clone https://github.com/livliv-dev/player
 cd player
 npm install
 npm run check          # types
-npm run build          # dist/: index.js, tracking.js, voice.js, body.js, png.js, vrm.js (ES modules), chunks/ and types/
+npm run build          # dist/: index.js, tracking.js, voice.js, body.js, png.js, vrm.js, mavatar.js (ES modules), chunks/ and types/
 npm test               # unit and fuzz tests (Node 22.18 or newer, no browser)
 npm run test:browser   # every featured character drawn in headless Chromium; once: npx playwright-core install chromium-headless-shell
 npm run test:engines   # a sample on Firefox and WebKit, where WebGL2 starts (a GPU or a software GL); once: npx playwright-core install firefox webkit
@@ -190,7 +200,8 @@ WebGL2 and ES2023: Chrome / Edge 97+, Firefox 104+, Safari 15.4+. Tested on curr
 ## License
 
 The code is under the [Apache License 2.0](LICENSE) (see also [NOTICE](NOTICE)). The featured characters have their
-own licence, [characters/LICENSE.md](characters/LICENSE.md). You may keep the LivLiv name and logo in your own versions, as long as they don't claim to be the official one.
+own licence, [characters/LICENSE.md](characters/LICENSE.md). mesh-avatar, which draws `.mavatar` avatars, is a separate
+package under the MIT License. You may keep the LivLiv name and logo in your own versions, as long as they don't claim to be the official one.
 
 ## Thanks
 

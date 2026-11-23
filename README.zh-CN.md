@@ -18,7 +18,7 @@
 
 - WebGL2，无依赖，核心 gzip 后约 30 KB
 - 口型同步（麦克风、音频、视频）和摄像头面捕（MediaPipe），都在浏览器里运行，按需引入
-- 支持 LivLiv、VRM 和 PNGTuber 三种角色，用同一套接口
+- 支持 LivLiv、VRM、PNGTuber 和 Mesh Avatar Studio（`.mavatar`）四种角色，用同一套接口
 - 全身角色双脚站在地面上：会晃、会蹲，说话时上身轻轻一沉，取景自己选
 - [`characters/`](characters/) 里有 23 个精选角色，可以直接用
 
@@ -26,8 +26,8 @@
 
 - **在线**：示例页在 [livliv-dev.github.io/player](https://livliv-dev.github.io/player/)。
 - **在本地**：`npm install && npm run build`，用任意静态服务器打开这个目录，访问 `/example/demo.html`
-  （表情、动作、麦克风、摄像头；`?model=../characters/<id>/` 换一个角色）。`/example/png.html` 和
-  `/example/vrm.html` 是 PNGTuber 和 VRM。
+  （表情、动作、麦克风、摄像头；`?model=../characters/<id>/` 换一个角色）。`/example/png.html`、
+  `/example/vrm.html` 和 `/example/mavatar.html` 是 PNGTuber、VRM 和 Mesh Avatar Studio 角色。
 - **在 livliv.ai 上**：那里的每个角色页都用同一套渲染播放这个角色。从 [livliv.ai/discover](https://livliv.ai/discover) 开始。
 
 ## Project LivLiv
@@ -67,20 +67,25 @@ button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
 await startFaceTracking(player)
 ```
 
-VRM 和 PNGTuber 用同一套接口：
+VRM、PNGTuber 和 Mesh Avatar Studio 角色用同一套接口：
 
 ```js
 import { BodyPlayer } from '@livliv-dev/player/body'
-import { VrmBody } from '@livliv-dev/player/vrm'    // 需要 three 和 @pixiv/three-vrm
+import { VrmBody } from '@livliv-dev/player/vrm'          // 需要 three 和 @pixiv/three-vrm
 import { PngBody } from '@livliv-dev/player/png'
+import { MavatarBody } from '@livliv-dev/player/mavatar'  // 需要 mesh-avatar
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')
 const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
+const mesh = new BodyPlayer(canvasC, new MavatarBody())
+await mesh.load('/avatars/me.mavatar')
 ```
 
-完整的 API 见 [API.md](API.md)（英文）：选项、参数、表情和动作、手感设置、驱动、录下的姿态和挂点、VRM 和 PNGTuber、不可信文件的上限、模型包和格式版本。LivLiv 模型包格式（`.livliv`、`model.json` v4）见 [FORMAT.md](FORMAT.md)，JSON Schema 在 [`schema/`](schema/)；v4 之前导出的模型包见 [FORMAT-v3.md](FORMAT-v3.md)，照样能播放。
+完整的 API 见 [API.md](API.md)（英文）：选项、参数、表情和动作、手感设置、驱动、录下的姿态和挂点、VRM、PNGTuber 和 `.mavatar`、不可信文件的上限、模型包和格式版本。LivLiv 模型包格式（`.livliv`、`model.json` v4）见 [FORMAT.md](FORMAT.md)，JSON Schema 在 [`schema/`](schema/)；v4 之前导出的模型包见 [FORMAT-v3.md](FORMAT-v3.md)，照样能播放。
+
+**0.7 新增（尚未发布）：** `@livliv-dev/player/mavatar` 让 Mesh Avatar Studio 角色（`.mavatar`）在 `BodyPlayer` 上播放，由它自己的运行库 [mesh-avatar](https://www.npmjs.com/package/mesh-avatar)（MIT）绘制，需要和播放器一起安装。播放器的待机动作、口型、面捕和表情都能驱动它。为 0.6 写的页面无需改动。详见 API.md 的 [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody)。
 
 **0.6 新增：** 头和身体动起来时，肩膀以下的长发会左右摆动（模型的 `tuning.hair_sway` 控制幅度，设为 0 即关闭），搭在身体上的长发跟着身体走，不再整片跟着头（`tuning.hair_rest`）；眨眼到一半时也不再露出半透明的眼珠。角色的手感设置（`tuning`：转头幅度、头发晃动、眨眼频率等）可以用 `player.tuning` 读取，用 `player.setTuning()` 在播放中直接修改，适合编辑器的滑块；`load(source, { continueMotion: true })` 让编辑后重新加载的角色接着原来的动作继续动。Blender 导出的 VRM 文件也能播放了。自己跑帧循环的代码可以从高级入口 `@livliv-dev/player/runtime` 直接拿到渲染器。为 0.5 写的页面无需改动。详见 API.md 的 [Feel settings](API.md#feel-settings-tuning-and-settuning)。
 
@@ -98,10 +103,11 @@ await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
 
 ## 用自己的角色
 
-可以导入 PNGTuber 的几张图，或 VRM（用 three.js 画）；也可以在 [livliv.ai](https://livliv.ai) 用一张图做出自己的角色。
+可以导入 PNGTuber 的几张图、VRM（用 three.js 画）或 Mesh Avatar Studio 角色（用 mesh-avatar 画）；也可以在 [livliv.ai](https://livliv.ai) 用一张图做出自己的角色。
 
 - **PNGTuber**：两张图（闭嘴、张嘴），有闭眼的两张更好。
 - **VRM**：VRoid Studio 或任何能导出 VRM 0.x / 1.0 的工具做的。
+- **Mesh Avatar Studio 角色**：[Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) 导出的 `.mavatar`，它用一张图做出会动的角色。
 - **LivLiv 模型**：在 [livliv.ai](https://livliv.ai) 用一张图做出角色，在角色页下载**模型包**（一个 `.livliv` 文件），直接传给 `load()`（URL，或用户选的 `File`），解压后的文件夹也可以。全身角色也能播放（0.5 起）；livliv.ai 暂时还不提供全身角色的模型包。
 
 ## 关于播放器和角色
@@ -131,7 +137,7 @@ git clone https://github.com/livliv-dev/player
 cd player
 npm install
 npm run check          # 类型检查
-npm run build          # dist/：index.js、tracking.js、voice.js、body.js、png.js、vrm.js（ES 模块）、chunks/ 和 types/
+npm run build          # dist/：index.js、tracking.js、voice.js、body.js、png.js、vrm.js、mavatar.js（ES 模块）、chunks/ 和 types/
 npm test               # 单元测试和模糊测试（Node 22.18 及以上，不需要浏览器）
 npm run test:browser   # 在无头 Chromium 里画出每个精选角色；先执行一次 npx playwright-core install chromium-headless-shell
 npm run test:engines   # 在 Firefox 和 WebKit 上跑一个小样本，机器要能启动 WebGL2（有 GPU 或软件 GL）；先执行一次 npx playwright-core install firefox webkit
@@ -145,7 +151,7 @@ npm run test:engines   # 在 Firefox 和 WebKit 上跑一个小样本，机器�
 
 ## 许可
 
-代码采用 [Apache License 2.0](LICENSE)（另见 [NOTICE](NOTICE)）。精选角色有自己的许可：[characters/LICENSE.md](characters/LICENSE.md)。你的版本可以继续用 LivLiv 的名字和标志，只要不自称官方版本。
+代码采用 [Apache License 2.0](LICENSE)（另见 [NOTICE](NOTICE)）。精选角色有自己的许可：[characters/LICENSE.md](characters/LICENSE.md)。绘制 `.mavatar` 的 mesh-avatar 是另一个包，采用 MIT 许可。你的版本可以继续用 LivLiv 的名字和标志，只要不自称官方版本。
 
 ## 致谢
 

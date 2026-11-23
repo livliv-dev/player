@@ -16,7 +16,7 @@
 
 - WebGL2、依存なし、コアは gzip で約 30 KB
 - リップシンク（マイク、音声、動画）と Web カメラのフェイストラッキング（MediaPipe）はブラウザ内で動作し、必要なときだけ読み込めます
-- LivLiv・VRM・PNGTuber のキャラクターを同じ API で再生
+- LivLiv・VRM・PNGTuber・Mesh Avatar Studio（`.mavatar`）のキャラクターを同じ API で再生
 - 全身のキャラクターは足を地面に着けたまま、揺れ、しゃがみ、話すと上半身が沈みます。表示範囲も選べます
 - [`characters/`](characters/) に厳選キャラクター 23 体。すぐに使えます
 
@@ -24,8 +24,8 @@
 
 - **オンラインで**：デモページは [livliv-dev.github.io/player](https://livliv-dev.github.io/player/) にあります。
 - **手元で**：`npm install && npm run build` のあと、このフォルダを静的サーバーで配信して `/example/demo.html` を開きます
-  （表情、アクション、マイク、カメラ。`?model=../characters/<id>/` でキャラクターを切り替え）。`/example/png.html` と
-  `/example/vrm.html` は PNGTuber と VRM です。
+  （表情、アクション、マイク、カメラ。`?model=../characters/<id>/` でキャラクターを切り替え）。`/example/png.html`、
+  `/example/vrm.html`、`/example/mavatar.html` は PNGTuber、VRM、Mesh Avatar Studio のアバターです。
 - **livliv.ai で**：各キャラクターのページで、同じレンダラーがそのキャラクターを動かしています。[livliv.ai/discover](https://livliv.ai/discover) からどうぞ。
 
 ## Project LivLiv
@@ -65,20 +65,25 @@ button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
 await startFaceTracking(player)
 ```
 
-VRM や PNGTuber も同じ API で：
+VRM、PNGTuber、Mesh Avatar Studio のアバターも同じ API で：
 
 ```js
 import { BodyPlayer } from '@livliv-dev/player/body'
-import { VrmBody } from '@livliv-dev/player/vrm'    // three と @pixiv/three-vrm が必要
+import { VrmBody } from '@livliv-dev/player/vrm'          // three と @pixiv/three-vrm が必要
 import { PngBody } from '@livliv-dev/player/png'
+import { MavatarBody } from '@livliv-dev/player/mavatar'  // mesh-avatar が必要
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')
 const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
+const mesh = new BodyPlayer(canvasC, new MavatarBody())
+await mesh.load('/avatars/me.mavatar')
 ```
 
-API の全体は [API.md](API.md)（英語）にあります：オプション、パラメーター、表情とアクション、動きの調整、ドライバー、記録したポーズと取り付け位置、VRM と PNGTuber、信頼できないファイルの上限、モデルパッケージ、フォーマットのバージョン。LivLiv のパッケージ形式（`.livliv`、`model.json` v4）は [FORMAT.md](FORMAT.md)、JSON Schema は [`schema/`](schema/) にあります。v4 より前に書き出したパッケージは [FORMAT-v3.md](FORMAT-v3.md) のとおりで、そのまま再生できます。
+API の全体は [API.md](API.md)（英語）にあります：オプション、パラメーター、表情とアクション、動きの調整、ドライバー、記録したポーズと取り付け位置、VRM・PNGTuber・`.mavatar`、信頼できないファイルの上限、モデルパッケージ、フォーマットのバージョン。LivLiv のパッケージ形式（`.livliv`、`model.json` v4）は [FORMAT.md](FORMAT.md)、JSON Schema は [`schema/`](schema/) にあります。v4 より前に書き出したパッケージは [FORMAT-v3.md](FORMAT-v3.md) のとおりで、そのまま再生できます。
+
+**0.7 の新機能（未リリース）：** `@livliv-dev/player/mavatar` で、Mesh Avatar Studio のアバター（`.mavatar`）を `BodyPlayer` で再生できます。描画はこの形式のランタイム [mesh-avatar](https://www.npmjs.com/package/mesh-avatar)（MIT）が行うので、プレイヤーと一緒にインストールしてください。プレイヤーの待機モーション、リップシンク、フェイストラッキング、表情で動きます。0.6 向けに書いたページは変更不要です。詳しくは API.md の [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody) をご覧ください。
 
 **0.6 の新機能：** 頭や体が動くと、肩より下の長い髪が左右に揺れます（モデルの `tuning.hair_sway` で揺れ幅を調整、0 で無効）。体にかかった長い髪は、頭ではなく体について動きます（`tuning.hair_rest`）。まばたきの途中で虹彩が半透明に透けて見えることもなくなりました。キャラクターの動きの調整（`tuning`：首の回り具合、髪の揺れ、まばたきの頻度など）は `player.tuning` で読み取り、`player.setTuning()` で再生中にそのまま変更できるので、エディターのスライダーに使えます。`load(source, { continueMotion: true })` を使えば、編集のたびに読み込み直しても動きが途切れません。Blender から書き出した VRM も再生できるようになりました。独自のフレームループを回すコードは、上級者向けの入口 `@livliv-dev/player/runtime` からレンダラーそのものを使えます。0.5 向けに書いたページは変更不要です。詳しくは API.md の [Feel settings](API.md#feel-settings-tuning-and-settuning) をご覧ください。
 
@@ -96,10 +101,11 @@ API の全体は [API.md](API.md)（英語）にあります：オプション�
 
 ## 自分のキャラクター
 
-PNGTuber の画像や VRM（three.js で描画）を読み込めます。[livliv.ai](https://livliv.ai) で 1 枚の絵から自分のキャラクターを作ることもできます。
+PNGTuber の画像、VRM（three.js で描画）、Mesh Avatar Studio のアバター（mesh-avatar で描画）を読み込めます。[livliv.ai](https://livliv.ai) で 1 枚の絵から自分のキャラクターを作ることもできます。
 
 - **PNGTuber**：2 枚の画像（口を閉じた絵、開いた絵）。目を閉じた 2 枚もあればなお良いです。
 - **VRM**：VRoid Studio など、VRM 0.x / 1.0 を書き出せるツールで作ったもの。
+- **Mesh Avatar Studio のアバター**：[Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) で書き出した `.mavatar`。1 枚の絵から動くアバターを作るツールです。
 - **LivLiv のモデル**：[livliv.ai](https://livliv.ai) で 1 枚の絵からキャラクターを作り、キャラクターページから**モデルパッケージ**（`.livliv` ファイル）をダウンロードします。そのまま `load()` に渡せます（URL、または選んでもらった `File`）。展開したフォルダでも構いません。全身のキャラクターも再生できます（0.5 から）。livliv.ai ではまだ全身キャラクターのパッケージを提供していません。
 
 ## プレイヤーとキャラクターについて
@@ -129,7 +135,7 @@ git clone https://github.com/livliv-dev/player
 cd player
 npm install
 npm run check          # 型チェック
-npm run build          # dist/：index.js、tracking.js、voice.js、body.js、png.js、vrm.js（ES モジュール）、chunks/ と types/
+npm run build          # dist/：index.js、tracking.js、voice.js、body.js、png.js、vrm.js、mavatar.js（ES モジュール）、chunks/ と types/
 npm test               # ユニットテストとファジング（Node 22.18 以降、ブラウザ不要）
 npm run test:browser   # ヘッドレス Chromium で全キャラクターを描画。最初に一度 npx playwright-core install chromium-headless-shell
 npm run test:engines   # Firefox と WebKit で小さなサンプルを実行。WebGL2 が動く環境（GPU かソフトウェア GL）が必要。最初に一度 npx playwright-core install firefox webkit
@@ -143,7 +149,7 @@ WebGL2 と ES2023 が必要です：Chrome / Edge 97+、Firefox 104+、Safari 15
 
 ## ライセンス
 
-コードは [Apache License 2.0](LICENSE) です（[NOTICE](NOTICE) も参照）。厳選キャラクターには別のライセンス [characters/LICENSE.md](characters/LICENSE.md) があります。LivLiv の名前とロゴは、公式版を名乗らない限り、あなたのバージョンでもそのまま使えます。
+コードは [Apache License 2.0](LICENSE) です（[NOTICE](NOTICE) も参照）。厳選キャラクターには別のライセンス [characters/LICENSE.md](characters/LICENSE.md) があります。`.mavatar` を描画する mesh-avatar は別パッケージで、MIT License です。LivLiv の名前とロゴは、公式版を名乗らない限り、あなたのバージョンでもそのまま使えます。
 
 ## 謝辞
 

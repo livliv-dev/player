@@ -16,7 +16,7 @@
 
 - WebGL2, không phụ thuộc thư viện ngoài, lõi chỉ khoảng 30 KB sau khi nén gzip
 - Đồng bộ môi (microphone, audio, video) và theo dõi khuôn mặt qua webcam (MediaPipe), đều chạy trong trình duyệt, chỉ được tải khi bạn cần
-- Phát nhân vật LivLiv, VRM và PNGTuber qua cùng một API
+- Phát nhân vật LivLiv, VRM, PNGTuber và Mesh Avatar Studio (`.mavatar`) qua cùng một API
 - Nhân vật toàn thân đứng trên mặt đất: lắc lư, khuỵu gối và nhún phần thân trên khi nói mà chân vẫn giữ nguyên, với khung hình bạn chọn
 - 23 nhân vật nổi bật trong [`characters/`](characters/), sẵn sàng dùng
 
@@ -25,7 +25,7 @@
 - **Trực tuyến**: các ví dụ chạy trên [livliv-dev.github.io/player](https://livliv-dev.github.io/player/).
 - **Tại đây**: `npm install && npm run build`, chạy thư mục này bằng bất kỳ static server nào rồi mở `/example/demo.html`
   (biểu cảm, hành động, microphone, camera; `?model=../characters/<id>/` chọn nhân vật khác).
-  `/example/png.html` và `/example/vrm.html` là ví dụ về PNGTuber và VRM.
+  `/example/png.html`, `/example/vrm.html` và `/example/mavatar.html` là ví dụ về PNGTuber, VRM và avatar Mesh Avatar Studio.
 - **Trên livliv.ai**: trang của từng nhân vật ở đó cũng dùng chính bộ renderer này để chạy nhân vật. Bắt đầu tại
   [livliv.ai/discover](https://livliv.ai/discover).
 
@@ -67,23 +67,31 @@ button.onclick = () => { speech.unlock(); speech.say('/reply.mp3') }
 await startFaceTracking(player)
 ```
 
-VRM hay PNGTuber đều dùng chung một API:
+VRM, PNGTuber hay avatar Mesh Avatar Studio đều dùng chung một API:
 
 ```js
 import { BodyPlayer } from '@livliv-dev/player/body'
-import { VrmBody } from '@livliv-dev/player/vrm'    // cần three và @pixiv/three-vrm
+import { VrmBody } from '@livliv-dev/player/vrm'          // cần three và @pixiv/three-vrm
 import { PngBody } from '@livliv-dev/player/png'
+import { MavatarBody } from '@livliv-dev/player/mavatar'  // cần mesh-avatar
 
 const vrm = new BodyPlayer(canvasA, new VrmBody())
 await vrm.load('/avatars/me.vrm')
 const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
+const mesh = new BodyPlayer(canvasC, new MavatarBody())
+await mesh.load('/avatars/me.mavatar')
 ```
 
-Toàn bộ API có trong [API.md](API.md) (tiếng Anh): các tùy chọn, tham số, biểu cảm và hành động, cài đặt cảm giác chuyển động, driver, tư thế đã ghi và điểm gắn, nhân vật VRM và PNGTuber,
+Toàn bộ API có trong [API.md](API.md) (tiếng Anh): các tùy chọn, tham số, biểu cảm và hành động, cài đặt cảm giác chuyển động, driver, tư thế đã ghi và điểm gắn, nhân vật VRM, PNGTuber và `.mavatar`,
 giới hạn khi đọc file không đáng tin cậy, gói model và phiên bản định dạng. Định dạng gói LivLiv (`.livliv`,
 `model.json` v4) có trong [FORMAT.md](FORMAT.md), kèm JSON Schema trong [`schema/`](schema/); các gói xuất trước v4
 được mô tả trong [FORMAT-v3.md](FORMAT-v3.md) và vẫn phát được.
+
+**Mới trong 0.7 (chưa phát hành):** avatar Mesh Avatar Studio (`.mavatar`) phát được trên `BodyPlayer` với
+`@livliv-dev/player/mavatar`, được vẽ bằng runtime riêng của định dạng này, [mesh-avatar](https://www.npmjs.com/package/mesh-avatar)
+(MIT), mà bạn cài cùng với player. Chuyển động chờ, khẩu hình, theo dõi khuôn mặt và biểu cảm của player đều điều khiển
+được nó. Trang viết cho 0.6 không cần sửa gì. Xem [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody) trong API.md.
 
 **Mới trong 0.6:** tóc dài phía dưới vai đung đưa sang hai bên khi đầu và thân chuyển động (`tuning.hair_sway` của mô
 hình quyết định biên độ, 0 là tắt), còn tóc dài xõa trên người thì đi theo thân chứ không theo đầu
@@ -123,11 +131,13 @@ Mỗi nhân vật còn là một file để tải về, `<id>.livliv`, tại `ht
 
 ## Nhân vật của riêng bạn
 
-Bạn có thể đưa vào ảnh của một PNGTuber, hoặc một VRM (vẽ bằng three.js); hoặc tự tạo nhân vật của mình từ một
-ảnh trên [livliv.ai](https://livliv.ai).
+Bạn có thể đưa vào ảnh của một PNGTuber, một VRM (vẽ bằng three.js) hoặc một avatar Mesh Avatar Studio (vẽ bằng
+mesh-avatar); hoặc tự tạo nhân vật của mình từ một ảnh trên [livliv.ai](https://livliv.ai).
 
 - **Một PNGTuber**: hai ảnh (ngậm miệng, há miệng), và thêm hai ảnh nhắm mắt nếu bạn có.
 - **Một VRM**: từ VRoid Studio hoặc bất kỳ công cụ nào xuất VRM 0.x hay 1.0.
+- **Một avatar Mesh Avatar Studio**: file `.mavatar` xuất từ [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio),
+  công cụ tạo avatar chuyển động từ một bức ảnh.
 - **Một model LivLiv**: tạo một model từ một ảnh trên [livliv.ai](https://livliv.ai), rồi tải gói model từ
   trang của nhân vật đó (**Model package**): một file `.livliv`. Đưa file đó vào `load()` nguyên như vậy (một URL, hoặc `File`
   người dùng đã chọn), hoặc giải nén thành thư mục. Nhân vật toàn thân cũng phát được (từ 0.5); livliv.ai hiện chưa cung cấp gói mô hình của
@@ -166,7 +176,7 @@ git clone https://github.com/livliv-dev/player
 cd player
 npm install
 npm run check          # kiểm tra kiểu
-npm run build          # dist/: index.js, tracking.js, voice.js, body.js, png.js, vrm.js (ES modules), chunks/ và types/
+npm run build          # dist/: index.js, tracking.js, voice.js, body.js, png.js, vrm.js, mavatar.js (ES modules), chunks/ và types/
 npm test               # unit test và fuzz test (Node 22.18 trở lên, không cần trình duyệt)
 npm run test:browser   # vẽ mọi nhân vật nổi bật trong headless Chromium; chạy một lần trước: npx playwright-core install chromium-headless-shell
 npm run test:engines   # một mẫu trên Firefox và WebKit, ở môi trường WebGL2 chạy được (có GPU hoặc software GL); chạy một lần trước: npx playwright-core install firefox webkit
@@ -182,7 +192,8 @@ WebGL2 và ES2023: Chrome / Edge 97+, Firefox 104+, Safari 15.4+. Đã kiểm tr
 ## Giấy phép
 
 Code thuộc [Giấy phép Apache 2.0](LICENSE) (xem thêm [NOTICE](NOTICE)). Các nhân vật nổi bật có
-giấy phép riêng, [characters/LICENSE.md](characters/LICENSE.md). Bạn có thể giữ tên và logo LivLiv trong phiên bản của mình, miễn là không tự nhận là bản chính thức.
+giấy phép riêng, [characters/LICENSE.md](characters/LICENSE.md). mesh-avatar, thư viện vẽ avatar `.mavatar`, là một gói
+riêng theo Giấy phép MIT. Bạn có thể giữ tên và logo LivLiv trong phiên bản của mình, miễn là không tự nhận là bản chính thức.
 
 ## Cảm ơn
 

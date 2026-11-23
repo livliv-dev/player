@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.0 (not released yet)
+
+Mesh Avatar Studio avatars play. A page written for 0.6 needs no change: `.livliv`, VRM and PNGTuber characters play
+exactly as before.
+
+### New
+
+- **`@livliv-dev/player/mavatar`**: `MavatarBody` plays a `.mavatar` from
+  [Mesh Avatar Studio](https://github.com/shinshin86/mesh-avatar-studio) on a `BodyPlayer`, drawn by the format's own
+  runtime, [mesh-avatar](https://www.npmjs.com/package/mesh-avatar) 0.9.0 (MIT), which the page installs (an optional
+  peer dependency, pinned to that version; only this entry imports it). The Player's pose drives it: the head, the body,
+  the eyes and gaze, the brows, the mouth with the voice's vowel, the smile, the idle motion, lip sync and face tracking.
+  Its expressions are mesh-avatar's live expressions (`laugh`, `shy`, `surprise`, `halfLidded`, `angry`, `sad`,
+  `wink`), by weight, at mesh-avatar's own numbers; its hair swings by its own physics (`sway`). It loads from a URL, a
+  `File` or its unpacked files, measures every picture before it is decoded (`MAVATAR_LIMITS`), gives the avatar's
+  author and licence in `model.meta` (`MavatarTerms`), draws at the exact size asked for (`renderPose` with a size,
+  a canvas in no page) and keeps the Player's move (actions, the view). The player's canvas draws in 2D, as a
+  PNGTuber's does; the WebGL context is the avatar's own canvas's, so `onContextLost` and `dispose({ release })` work
+  as for a VRM. See [API.md](API.md#characters-that-arent-livliv-models-livliv-devplayerbody).
+- **`checkMavatar(file)`** and **`MAVATAR_LIMITS`**: a `.mavatar` is held to limits before anything in it is decoded
+  or built (its pictures from their headers, its rig's cells, lists and the vertices its meshes would have, counted as
+  mesh-avatar builds them, at most about three times its Miko sample's; the rig's picture size the base picture's own), so a file from anyone cannot make mesh-avatar freeze the page or run it out of
+  memory. `checkMavatar` runs the same check for a page that takes files from people. See
+  [API.md](API.md#untrusted-files).
+- `example/mavatar.html`: open a `.mavatar`; without one, Nana as a `.mavatar` (made by LivLiv from the featured
+  character for the tests, under the featured characters' licence).
+
 ## 0.6.0
 
 Long hair that swings and rests on the shoulders, feel settings an editor can change while the character plays, an
