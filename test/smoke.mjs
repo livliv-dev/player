@@ -253,6 +253,15 @@ try {
     console.log(`${setOk ? 'ok  ' : 'FAIL'} setTuning() draws as a load with the same settings: ${s.plain.set.join('/')} px differ (${s.plain.moved.join('/')} from the character's own); with keyforms (${kf}) ${s.keyforms.set.join('/')} px (keys ${s.keyforms.keys[1]}), set back ${s.keyforms.back.join('/')} px, a frame ${s.keyforms.ms[0]} ms, with the keys measured again ${s.keyforms.ms[1]} ms${setOk ? '' : `: ${JSON.stringify(s)}`}`)
   }
 
+  // long hair's swing (see runSway), on a character with long hair
+  {
+    const id = ids.find((i) => i === 'f05') ?? ids[0]
+    const r = await page.evaluate((a) => window.runSway(a), id)
+    const ok = r.same.every((n) => n === 0) && r.swings.some((n) => n > 0)
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} long hair swings (${id}): ${r.swings.join('/')} px move with the swing; hair_sway 0 in the file and setTuning({ hairSway: 0 }) differ by ${r.same.join('/')} px`)
+  }
+
   // a model that breaks while it is built (see runKeep): the character before stays, to the pixel
   const has = (test) => ids.find((id) => test(JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')), id))
   const rigged = has((m) => m.rig?.chains?.length && m.files?.keyforms) ?? kfId

@@ -167,6 +167,7 @@
         "hair": { "type": "number", "minimum": 0, "maximum": 10 },
         "hair_front": { "type": "number", "minimum": 0, "maximum": 10 },
         "hair_back": { "type": "number", "minimum": 0, "maximum": 10 },
+        "hair_sway": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: how far long hair swings sideways below the shoulders, times hair_back (or hair); 0 off." },
         "blink": { "type": "number", "minimum": 0, "maximum": 10 },
         "expr": { "type": "number", "minimum": 0, "maximum": 10 },
         "mouth": { "type": "number", "minimum": 0, "maximum": 10 },

@@ -703,6 +703,29 @@
     return out
   }
 
+  /** long hair's swing below the shoulders: frames of a head turning and the body leaning, replayed with time passing, as
+   *  the model comes (the swing on by default), with tuning.hair_sway 0 in its file, and with setTuning({ hairSway: 0 }):
+   *  the last two must be the same frames, the first must differ from them */
+  window.runSway = async (id) => {
+    const m = bare(await json(id))
+    const play = async (model, set) => {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      await p.load(await filesOf(id, model))
+      p.resize()
+      if (set) p.setTuning(set)
+      const base = p.getPose(), shots = []
+      for (let n = 0; n < 90; n++) {
+        const params = { ...base.params, angleX: 25 * Math.sin(n / 9), angleZ: 10 * Math.sin(n / 13), bodyX: 6 * Math.sin(n / 11) }
+        p.renderPose({ ...base, params }, 1 / 60)
+        if (n % 10 === 9) shots.push(pixels())
+      }
+      p.dispose()
+      return shots
+    }
+    const on = await play(m), offFile = await play({ ...m, tuning: { ...m.tuning, hair_sway: 0 } }), offSet = await play(m, { hairSway: 0 })
+    return { same: offFile.map((d, i) => differ(d, offSet[i])), swings: on.map((d, i) => differ(d, offSet[i])) }
+  }
+
   /** hostile packages: each must be refused (or, for broken keyforms, played on the rig alone), the model before kept */
   window.runHostile = async (id, kfId) => {
     const player = new Player(canvas, { autoplay: false, followPointer: false })
