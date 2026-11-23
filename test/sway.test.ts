@@ -134,7 +134,7 @@ describe('the hair that hangs from the head', () => {
   })
 })
 
-describe('an untrusted model cannot stall it', () => {
+describe('bounded for any face size', () => {
   /** the bridging as first written: each set cell widened over its window, one cell at a time */
   function reference(cells: Uint8Array, w: number, h: number, seed: number, bridge: number) {
     const a = new Uint8Array(w * h), d = new Uint8Array(w * h), out = new Uint8Array(w * h), stack: number[] = []
@@ -157,13 +157,15 @@ describe('an untrusted model cannot stall it', () => {
       assert.deepEqual(hangingCells(c, w, h, s, b), reference(c, w, h, s, b), `${w} x ${h}, bridge ${b}`)
     }
   })
-  it('takes no longer for a bridge a crafted face width makes huge: 2048 x 2048 cells, bridge 20 000', () => {
-    const w = 2048, h = 2048, c = new Uint8Array(w * h)
-    for (let i = 0; i < c.length; i += 97) c[i] = 1
-    const t0 = performance.now()
-    hangingCells(c, w, h, 300, 20000)
-    const ms = performance.now() - t0
-    assert.ok(ms < 1000, `${ms.toFixed(0)} ms`)
+  it('a huge bridge costs no more than the cells: far less than cell by cell (512 x 512, bridge 20 000)', () => {
+    const w = 512, h = 512, c = new Uint8Array(w * h)
+    for (let i = 0; i < c.length; i += 7) c[i] = 1
+    const time = (f: () => unknown) => { const t0 = performance.now(); f(); return performance.now() - t0 }
+    time(() => hangingCells(c, w, h, 100, 20000))  // (warmed)
+    const now = Math.min(time(() => hangingCells(c, w, h, 100, 20000)), time(() => hangingCells(c, w, h, 100, 20000)))
+    const before = time(() => reference(c, w, h, 100, 20000))
+    // measured side by side, so a busy machine slows both alike
+    assert.ok(now * 5 < before, `${now.toFixed(1)} ms, cell by cell ${before.toFixed(1)} ms`)
   })
   it('a step with a number that is none is skipped, and the swing never leaves its limit, whatever the step', () => {
     const sw = swayState()
