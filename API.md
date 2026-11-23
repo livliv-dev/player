@@ -233,7 +233,7 @@ motion holds each blink shut for 35 ms, so every blink shows the closed eye, at 
 that face tracking or your own `params` half close get the same hand-over (the hold is the idle motion's).
 
 ```js
-player.puppet.blinkHandover = false   // the blink of 0.5: the open eye fades from eye-open 0.2 down over the closed one
+player.blinkHandover = false   // the blink of 0.5: the open eye fades from eye-open 0.2 down over the closed one
 ```
 
 With it off, the open eye fades out while the closed one comes in under it, which showed the iris as a see-through
@@ -247,6 +247,8 @@ grey smear for a few frames of every blink. Either way a frame with the eyes ope
 - `play()`, `pause()`, `playing`. The loop also skips drawing while the canvas is scrolled out of view (unless `renderWhenHidden`).
 - `resize()`: draws now at the canvas's current size. Only needed after resizing a paused player.
 - `maxPixelRatio`: as the option, and it can be changed at any time.
+- `blinkHandover`: blinks without a see-through iris, `true` by default; `false` blinks as 0.5 did (see [Blinks](#blinks)).
+  Kept across loads. `Player` only: VRM and PNGTuber characters blink their own way.
 - `snapshot()`: the pose as it is now, as a PNG data URL (with the mark).
 - `getPose()`, `onFrame`, `renderPose()`: the pose as drawn, to record it or show it again, see [Recorded poses](#recorded-poses).
 - `getAnchor('head' | 'body')`: where the head or the torso was drawn, see [Attachment points](#attachment-points).

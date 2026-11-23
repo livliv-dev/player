@@ -88,6 +88,11 @@ export class Player extends PlayerBase<ModelInfo> {
   get maxPixelRatio() { return this.puppet.maxDpr }
   set maxPixelRatio(v: number) { this.puppet.maxDpr = v }
 
+  /** Blinks without a see-through iris (true, the default): halfway through a blink the open eye stays whole until it is
+   *  a thin slit, and the idle motion holds each blink shut for 35 ms. false: the blink of 0.5. Kept across loads */
+  get blinkHandover(): boolean { return this.puppet.blinkHandover }
+  set blinkHandover(on: boolean) { this.puppet.blinkHandover = !!on }
+
   /** @internal */
   protected get gl() { return this.puppet.gl }
   /** @internal */

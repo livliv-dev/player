@@ -305,6 +305,17 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} long hair rests on the body (${id}): ${r.rests.join('/')} px move with it; hair_rest 0 in the file and setTuning({ hairRest: 0 }) differ by ${r.same.join('/')} px; a still frame by ${r.still.join('/')} px`)
   }
 
+  // the blink hand-over's switch on Player (see runBlinkSwitch)
+  {
+    const id = ids.find((i) => i === 'k01') ?? ids[0]
+    const b = await page.evaluate((a) => window.runBlinkSwitch(a), id)
+    const hold = b.default[2]
+    const ok = b.default[0] === true && b.default[1] === true && hold > 0 && b.off.join() === 'false,false,0' && b.kept === false
+      && b.on[0] === true && b.on[1] === true && b.on[2] === hold && b.slit > 0 && b.open === 0 && b.back === 0
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} player.blinkHandover (${id}): on by default (blink hold ${hold} s), off ${JSON.stringify(b.off)}, kept across a load (${b.kept}); off moves ${b.slit} px of nearly shut eyes and ${b.open} px of open ones; back on differs by ${b.back} px`)
+  }
+
   // a model that breaks while it is built (see runKeep): the character before stays, to the pixel
   const has = (test) => ids.find((id) => test(JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')), id))
   const rigged = has((m) => m.rig?.chains?.length && m.files?.keyforms) ?? kfId

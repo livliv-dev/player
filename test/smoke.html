@@ -730,6 +730,33 @@
     return { same: offFile.map((d, i) => differ(d, offSet[i])), swings: on.map((d, i) => differ(d, offSet[i])) }
   }
 
+  /** player.blinkHandover: on by default; false is the renderer's switch off and no hold in the idle motion's blinks. The
+   *  eyes nearly shut (open 0.07) draw differently with it off, open eyes the same; back on is the default's frame to the
+   *  pixel, and a load keeps the switch where it was */
+  window.runBlinkSwitch = async (id) => {
+    const out = {}
+    const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+    await p.load(`../characters/${id}/`)
+    p.resize()
+    const base = p.getPose()
+    const shot = (open) => { p.renderPose({ ...base, params: { ...base.params, eyeLOpen: open, eyeROpen: open } }, 0); return pixels() }
+    const hold = () => { p.draw(0); return p.idler.lv.blinkHold }
+    out.default = [p.blinkHandover, p.puppet.blinkHandover, hold()]
+    const onSlit = shot(0.07), onOpen = shot(0.5)
+    p.blinkHandover = false
+    out.off = [p.blinkHandover, p.puppet.blinkHandover, hold()]
+    const offSlit = shot(0.07), offOpen = shot(0.5)
+    await p.load(`../characters/${id}/`)
+    out.kept = p.blinkHandover
+    p.blinkHandover = true
+    out.on = [p.blinkHandover, p.puppet.blinkHandover, hold()]
+    out.slit = differ(onSlit, offSlit)
+    out.open = differ(onOpen, offOpen)
+    out.back = differ(onSlit, shot(0.07))
+    p.dispose()
+    return out
+  }
+
   /** long hair resting on the body: a still frame, then frames of the head turning and the body leaning, as the model comes
    *  (on by default), with tuning.hair_rest 0 in its file, and with setTuning({ hairRest: 0 }): the still frames all the same,
    *  the last two runs the same frames, the first different from them */
