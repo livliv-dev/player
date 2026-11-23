@@ -5,6 +5,8 @@ import type { LoadOptions } from './base'
 import type { ModelSource } from './index'
 
 const fail = (message: string) => new LivLivError('too-large', `LivLiv: ${message}`)
+/** a file larger than its own limit (`limit`), or all of them larger than a package may be */
+const tooLarge = (file?: string, limit = 0) => fail(limit ? `${file} is larger than ${limit} bytes` : `the model's files are larger than ${ZIP_LIMITS.bytes} bytes in all`)
 /** a file's path in the package: what load() would find it by. A name that leaves the package is refused, as unzip
  *  refuses it (the same rule, leavesPackage); any other name is the package's, `#`, `?` and `:` included */
 const pathOf = (path: string) => {
@@ -43,12 +45,12 @@ export async function modelFiles(source: ModelSource, options: Pick<LoadOptions,
       if (signal?.aborted || (e as Error)?.name === 'AbortError') throw e
       throw new LivLivError('unreachable', `LivLiv: could not load ${url.pathname}: unreachable, or on another origin that sends no CORS header`, { cause: e })
     })
-    if (!r.ok) throw new LivLivError('http', `LivLiv: model file request failed (HTTP ${r.status})`, { status: r.status })
+    if (!r.ok) throw new LivLivError('http', `LivLiv: could not load ${url.pathname} (HTTP ${r.status})`, { status: r.status })
     const reader = r.body?.getReader(), chunks: Uint8Array<ArrayBuffer>[] = []
     if (!reader) {
       const blob = await r.blob()
       total += blob.size
-      if (blob.size > limit || total > ZIP_LIMITS.bytes) throw fail('model files exceed the package limit')
+      if (blob.size > limit || total > ZIP_LIMITS.bytes) throw tooLarge(url.pathname, blob.size > limit ? limit : 0)
       return blob
     }
     let size = 0
@@ -58,7 +60,7 @@ export async function modelFiles(source: ModelSource, options: Pick<LoadOptions,
         const { done, value } = await reader.read()
         if (done) break
         size += value.byteLength; total += value.byteLength
-        if (size > limit || total > ZIP_LIMITS.bytes) throw fail('model files exceed the package limit')
+        if (size > limit || total > ZIP_LIMITS.bytes) throw tooLarge(url.pathname, size > limit ? limit : 0)
         chunks.push(value)
       }
     } catch (error) { await reader.cancel(error); throw error }
@@ -74,12 +76,12 @@ export async function modelFiles(source: ModelSource, options: Pick<LoadOptions,
       if (p) paths.add(pathOf(layer.webp ? p.replace(/\.png$/, '.webp') : p))
     }
     for (const p of [model.keyforms, model.files?.avatar, model.files?.cover, model.files?.preview]) if (p) paths.add(pathOf(p))
-    if (paths.size >= ZIP_LIMITS.entries) throw fail('too many model files')
+    if (paths.size >= ZIP_LIMITS.entries) throw fail(`the model names more than ${ZIP_LIMITS.entries - 1} files`)
     const files = new Map<string, Blob>([['model.json', manifest]])
     onProgress?.({ step: 'download', progress: 0 })
     for (const path of paths) {
       const asset = new URL(path, url), base = new URL('.', url), query = new URLSearchParams(url.search)
-      if (asset.origin !== base.origin || !asset.pathname.startsWith(base.pathname) || /%(?:2f|5c)/i.test(asset.pathname)) throw new LivLivError('invalid', 'LivLiv: a model resource is outside its folder')
+      if (asset.origin !== base.origin || !asset.pathname.startsWith(base.pathname) || /%(?:2f|5c)/i.test(asset.pathname)) throw new LivLivError('invalid', `LivLiv: ${JSON.stringify(path.slice(0, 200))} is outside the model's folder`)
       if (model.tex) query.set('v', model.tex)
       asset.search = query.toString()
       files.set(path, await read(asset))
@@ -96,8 +98,8 @@ export async function modelFiles(source: ModelSource, options: Pick<LoadOptions,
   if (![...files.keys()].some((name) => name === 'model.json' || name.endsWith('/model.json'))) {
     for (const blob of files.values()) if (await isZip(blob)) { files = await unzip(blob, signal); break }
   }
-  if (files.size > ZIP_LIMITS.entries) throw fail('too many model files')
-  for (const blob of files.values()) { total += blob.size; if (total > ZIP_LIMITS.bytes) throw fail('model files exceed the package limit') }
+  if (files.size > ZIP_LIMITS.entries) throw fail(`the model has ${files.size} files, more than ${ZIP_LIMITS.entries}`)
+  for (const blob of files.values()) { total += blob.size; if (total > ZIP_LIMITS.bytes) throw tooLarge() }
   signal?.throwIfAborted()
   return files
 }

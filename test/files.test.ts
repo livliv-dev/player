@@ -24,7 +24,7 @@ test('portable files preserve the original manifest, licenses and all declared f
 test('portable source reads reject missing remote resources and unsafe paths instead of saving an incomplete model', async (t) => {
   const raw = await readFile(new URL('./fixtures/example-k01.model.json', import.meta.url), 'utf8')
   t.mock.method(globalThis, 'fetch', async (url: URL) => new Response(url.pathname.endsWith('model.json') ? raw : 'missing', { status: url.pathname.endsWith('model.json') ? 200 : 404 }))
-  await assert.rejects(modelFiles('https://model.test/character/'), { name: 'LivLivError', code: 'http', status: 404, message: /HTTP 404/ })
+  await assert.rejects(modelFiles('https://model.test/character/'), { name: 'LivLivError', code: 'http', status: 404, message: /could not load \/character\/\S+ \(HTTP 404\)/ })
   await assert.rejects(modelFiles(new Map([['../model.json', new Blob(['{}'])]])), /outside/)
   t.mock.method(globalThis, 'fetch', async () => new Response('{"format": "something-else"}'))
   await assert.rejects(modelFiles('https://model.test/character/'), { name: 'LivLivError', code: 'not-a-model' })
