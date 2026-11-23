@@ -1,14 +1,25 @@
 import { LivLivError, type LivLivErrorCode } from './errors'
 import { readModel } from './runtime/format'
-import { isZip, unzip, ZIP_LIMITS } from './zip'
+import { isZip, leavesPackage, unzip, ZIP_LIMITS } from './zip'
 import type { LoadOptions } from './base'
 import type { ModelSource } from './index'
 
 const fail = (message: string) => new LivLivError('too-large', `LivLiv: ${message}`)
+/** a file's path in the package: what load() would find it by. A name that leaves the package is refused, as unzip
+ *  refuses it (the same rule, leavesPackage); any other name is the package's, `#`, `?` and `:` included */
 const pathOf = (path: string) => {
   const value = path.replace(/\\/g, '/').replace(/^(\.\/)+/, '')
-  if (!value || value.startsWith('/') || /[:?#\0]/.test(value) || value.split('/').some((p) => p === '..' || p === '.')) throw new LivLivError('invalid', 'LivLiv: a model file path is outside its package')
+  if (!value || leavesPackage(value)) throw new LivLivError('invalid', `LivLiv: the model file path ${JSON.stringify(path.slice(0, 200))} is outside its package`)
   return value
+}
+
+/** The package's own model.json among its files' paths: the shallowest, the shortest path that is `model.json` or ends
+ *  in `/model.json` (the first of those as long, in the order given). What load() plays; undefined when there is none.
+ *  For a tool that reads a package's files before handing them to the player */
+export function packageModelJson(paths: Iterable<string>): string | undefined {
+  let best: string | undefined
+  for (const p of paths) if ((p === 'model.json' || p.endsWith('/model.json')) && (best === undefined || p.length < best.length)) best = p
+  return best
 }
 
 /** model.json read as the player reads it, its errors as a LivLivError */

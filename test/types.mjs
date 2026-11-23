@@ -16,7 +16,7 @@ fs.rmSync(dir, { recursive: true, force: true })
 fs.mkdirSync(path.join(dir, 'node_modules', path.dirname(name)), { recursive: true })
 fs.symlinkSync(root, path.join(dir, 'node_modules', name), 'dir')
 fs.writeFileSync(path.join(dir, 'use.ts'), `
-import { LivLivError, Player, VERSION, type ActionId, type Driver, type Fit, type Frame, type Host, type LivLivErrorCode, type LoadOptions, type LoadProgress, type ModelInfo, type PlaybackPose, type Tuning, type View } from '${name}'
+import { LivLivError, Player, VERSION, modelFiles, packageModelJson, type ActionId, type Driver, type Fit, type Frame, type Host, type LivLivErrorCode, type LoadOptions, type LoadProgress, type ModelInfo, type PlaybackPose, type Tuning, type View } from '${name}'
 import { preloadFaceModel, startFaceTracking, TrackingFilter, parameterRule, readTrackingProfile, TRACKING_PARAMETERS, type TrackingParameter, type TrackingProfile, type ParameterRule, type FaceTracking } from '${name}/tracking'
 import { createSpeech, startLipSync, type ClipHooks, type LipSync } from '${name}/voice'
 import { BODY_LIMIT, BodyPlayer, LivLivError as FromBody, type Body } from '${name}/body'
@@ -82,6 +82,9 @@ player.act(move)
 player.setAway(true)
 player.maxPixelRatio = 1
 void [moved, code, new FromBody('http', 'x', { status: 404 }).status]
+const own: string | undefined = packageModelJson(['a/model.json', 'model.json'])
+const portable: Promise<Map<string, Blob>> = modelFiles('/characters/k01/')
+void [own, portable]
 // the feel settings: read as they play, changed live; a host of your own may carry them or not
 const feel: Readonly<Tuning> = player.tuning
 const blinkRate: number = bodyPlayer.tuning.blink

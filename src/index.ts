@@ -7,13 +7,14 @@ export type { AnchorName, AttachmentAnchor } from './anchors'
 import { langOf, pickLabel, readModel, type Labels, type ModelMeta } from './runtime/format'
 import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, defaultTuning, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
 import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LivLivErrorCode, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
+import { packageModelJson } from './files'
 import { Mark } from './mark'
 import { claimCanvas } from './release'
 import { ZIP_LIMITS, isZip, unzip } from './zip'
 
 export { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, defaultParams }
 export type { Labels, ModelDef, ModelMeta, Params, Tuning }
-export { modelFiles } from './files'
+export { modelFiles, packageModelJson } from './files'
 export { LivLivError }
 export type { ParameterProfile, ParameterSample, ParameterRule } from './profile'
 export type { ActionId, Driver, Fit, Frame, Host, LivLivErrorCode, LoadOptions, LoadProgress, PlaybackPose, PlayerOptions, View } from './base'
@@ -263,7 +264,7 @@ async function fromFiles(source: Exclude<ModelSource, string | URL>) {
       if (await isZip(b)) { const z = await unpack(b); files.clear(); z.forEach((v, k) => files.set(k, v)); break }
     }
   }
-  const json = [...files.keys()].filter(isJson).sort((a, b) => a.length - b.length)[0]
+  const json = packageModelJson(files.keys())
   if (!json && [...files.keys()].some((k) => /\.(vrm|glb)$/i.test(k))) throw vrmHere()
   if (!json) throw new LivLivError('missing-file', 'LivLiv: no model.json among the files')
   const dir = json.slice(0, json.length - 'model.json'.length)

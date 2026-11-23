@@ -52,6 +52,11 @@ load, as they are ([FORMAT-v3.md](FORMAT-v3.md)).
 with a project or package it again. From a URL it reads `model.json` as `load()` does (a model `load()` refuses is
 refused) and fetches every image and file it names, rejecting if one does not come; a package or files you pass come
 back unpacked, as they are. `model.json` is unchanged, with its licence and its mark, and the limits are `load()`'s.
+It takes the file names `load()` takes (`#`, `?` and `:` included) and refuses, as opening a `.livliv` does, a name
+that would leave the package: absolute, on a drive, or with a `.` or `..` segment.
+
+`packageModelJson(paths)` says which `model.json` among a package's file paths is its own: the shortest one (the first
+of those as long). It is the one `load()` plays, for a tool that reads the files before handing them to the player.
 
 ## Player
 

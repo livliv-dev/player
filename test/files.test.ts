@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { modelFiles } from '../src/index'
+import { modelFiles, packageModelJson } from '../src/index'
+import { leavesPackage } from '../src/zip'
 
 test('portable files preserve the original manifest, licenses and all declared folder resources', async (t) => {
   const raw = JSON.parse(await readFile(new URL('./fixtures/example-k01.model.json', import.meta.url), 'utf8'))
@@ -61,4 +62,23 @@ test('cancelling local package reads rejects with the original abort reason', as
     const pending = modelFiles(source, { signal: controller.signal }); controller.abort(reason)
     await assert.rejects(pending, (error) => error === reason)
   }
+})
+
+test('modelFiles takes every name load() would, and refuses the ones unzip refuses', async () => {
+  const blob = new Blob(['x'])
+  const ok = ['textures/a#b.webp', 'notes: v2.txt', 'x?.png', './model.json', 'folder\\inner\\file.png', 'a..b/c.webp', '.hidden']
+  const got = await modelFiles(new Map(ok.map((k) => [k, blob])))
+  assert.deepEqual([...got.keys()], ['textures/a#b.webp', 'notes: v2.txt', 'x?.png', 'model.json', 'folder/inner/file.png', 'a..b/c.webp', '.hidden'])
+  for (const bad of ['../model.json', '/etc/x', 'C:/x.png', 'c:x', 'a/./b', 'a/../b', 'a/..', '']) {
+    await assert.rejects(modelFiles(new Map([[bad, blob]])), { name: 'LivLivError', code: 'invalid', message: /outside its package/ }, bad)
+    if (bad) assert.equal(leavesPackage(bad.replace(/^(\.\/)+/, '')), true, bad)
+  }
+})
+
+test('the package\'s own model.json: the shortest, the first of those as long, as load() picks it', () => {
+  assert.equal(packageModelJson(['a/b/model.json', 'x/model.json', 'textures/a.webp']), 'x/model.json')
+  assert.equal(packageModelJson(['b/model.json', 'a/model.json']), 'b/model.json')
+  assert.equal(packageModelJson(new Set(['deep/er/model.json', 'model.json'])), 'model.json')
+  assert.equal(packageModelJson(['models.json', 'amodel.json', 'textures/x.png']), undefined)
+  assert.equal(packageModelJson([]), undefined)
 })
