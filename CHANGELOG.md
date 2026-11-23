@@ -20,8 +20,8 @@ exactly as before.
   PNGTuber's does; the WebGL context is the avatar's own canvas's, so `onContextLost` and `dispose({ release })` work
   as for a VRM. See [API.md](API.md#characters-that-arent-livliv-models-livliv-devplayerbody).
 - **`checkMavatar(file)`** and **`MAVATAR_LIMITS`**: a `.mavatar` is held to limits before anything in it is decoded
-  or built (its pictures from their headers, its rig's cells, lists and the vertices its meshes would have, the rig's
-  picture size the base picture's own), so a file from anyone cannot make mesh-avatar freeze the page or run it out of
+  or built (its pictures from their headers, its rig's cells, lists and the vertices its meshes would have, counted as
+  mesh-avatar builds them, at most about three times its Miko sample's; the rig's picture size the base picture's own), so a file from anyone cannot make mesh-avatar freeze the page or run it out of
   memory. `checkMavatar` runs the same check for a page that takes files from people. See
   [API.md](API.md#untrusted-files).
 - `example/mavatar.html`: open a `.mavatar`; without one, Nana as a `.mavatar` (made by LivLiv from the featured

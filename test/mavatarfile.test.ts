@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { packAvatar, parseRig, unpackAvatar } from 'mesh-avatar'
 import { checkMavatar } from '../src/mavatar'
-import { limits, MAVATAR_LIMITS } from '../src/mavatarfile'
+import { limits, MAVATAR_LIMITS, meshVertices } from '../src/mavatarfile'
 
 const fixture = new Uint8Array(readFileSync(new URL('./fixtures/nana.mavatar', import.meta.url)))
 const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v))
@@ -68,6 +68,27 @@ describe('checkMavatar: a rig that would build too much', () => {
   })
 })
 
+describe('checkMavatar: one mesh per entry, as mesh-avatar builds them', () => {
+  const overlay = (n: number) => changed((_rig, _layers, files) => {
+    files['built/overlays/big.png'] = files['built/base.png']
+    files['built/overlays/overlays.json'] = enc({ version: 1, overlays: Array.from({ length: n }, (_, i) => ({ name: `o${i}`, file: 'big.png' })) })
+  })
+  it('the fixture: about 38 000 vertices, inside the limit (about three times the largest real avatar)', () => {
+    const files = unpackAvatar(fixture), v = meshVertices(rigOf(), layersOf(), dec(files['built/sprites/sprites.json']), [])
+    assert.ok(v > 30_000 && v < 45_000 && v < MAVATAR_LIMITS.vertices, `${v}`)
+  })
+  it('overlays.json entries that all name one large picture: a mesh each', async () => {
+    assert.equal(await code(checkMavatar(overlay(40))), 'too-large')
+  })
+  it('more overlays.json entries than the limit', async () => {
+    const many = changed((_rig, _layers, files) => {
+      files['built/overlays/dot.png'] = files['built/eye0_crease.png']
+      files['built/overlays/overlays.json'] = enc({ version: 1, overlays: Array.from({ length: MAVATAR_LIMITS.overlays + 1 }, (_, i) => ({ name: `o${i}`, file: 'dot.png' })) })
+    })
+    assert.equal(await code(checkMavatar(many)), 'too-large')
+  })
+})
+
 describe('the rig limits, one by one', () => {
   const run = (f: (rig: any, layers: any) => void) => {
     const rig = rigOf() as any, layers = layersOf()
@@ -89,6 +110,11 @@ describe('the rig limits, one by one', () => {
   it('any list in the rig: an outline, a strand of many nodes', () => {
     assert.equal(run((rig) => { rig.strands[0].nodes = Array.from({ length: MAVATAR_LIMITS.points + 1 }, (_, i) => [i, i]) }), 'too-large')
     assert.equal(run((rig) => { rig.head.weightOutline = Array.from({ length: 5000 }, (_, i) => [i % 100, i % 50]) }), 'too-large')
+  })
+  it('accessories: each its own name, each a mesh of its rectangle', () => {
+    assert.equal(run((rig, layers) => { rig.accessories = [{ name: 'a' }, { name: 'a' }]; layers.layers.a = [0, 0, 10, 10] }), 'invalid')
+    assert.equal(run((rig, layers) => { rig.accessories = Array.from({ length: 30 }, (_, i) => ({ name: `a${i}` })); for (let i = 0; i < 30; i++) layers.layers[`a${i}`] = [0, 0, 1024, 1536] }), 'too-large')
+    assert.equal(run((rig, layers) => { rig.accessories = [{ name: 'a' }]; layers.layers.a = [0, 0, 60, 120] }), 'ok')
   })
   it('layers drawn on cells too small for their size', () => {
     assert.equal(run((rig, layers) => { rig.mesh.eyeCell = 2; layers.layers.eye0_lash = [0, 0, 1024, 1536] }), 'too-large')

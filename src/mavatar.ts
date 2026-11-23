@@ -77,7 +77,7 @@ export class MavatarBody implements Body {
     // its files unpacked once, measured and counted against MAVATAR_LIMITS before anything is decoded or built
     const MA = await runtime()
     const { entries, file } = await entriesOf(files, MA)
-    const { manifest, rig } = inspect(entries, file, MA)
+    const { manifest, rig } = await inspect(entries, file, MA)
     const { pkg, key } = await packageFor(entries, manifest, rig)
     // the new avatar on a canvas of its own, apart from the one shown (a failed load leaves that on the canvas): it takes
     // over at the end. Two contexts for that moment, the old one given up right after
@@ -238,5 +238,5 @@ export async function checkMavatar(source: Blob | Map<string, Blob>): Promise<{ 
   const given = (source as File).name ?? ''
   const files = source instanceof Blob ? new Map([[/\.(mavatar|zip)$/i.test(given) ? given : 'avatar.mavatar', source]]) : source
   const { entries, file } = await entriesOf(files, MA)
-  return { name: inspect(entries, file, MA).manifest.name.trim().slice(0, 200) }
+  return { name: (await inspect(entries, file, MA)).manifest.name.trim().slice(0, 200) }
 }

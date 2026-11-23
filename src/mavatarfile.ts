@@ -15,15 +15,16 @@ import { LivLivError } from './errors'
  *  - side, pixels: a picture's side, and the pictures' pixels in all;
  *  - json: each JSON file (avatar.json, rig.json, layers.json, sprites.json, overlays.json), in bytes;
  *  - cell: a mesh cell's side at least, in pixels (rig.mesh: baseCell, fine.cell and the others);
- *  - vertices: the meshes' vertices in all, counted from the rig and the layers' rectangles as mesh-avatar lays its
- *    grids (an avatar made in Mesh Avatar Studio has some 20 000);
+ *  - vertices: the meshes' vertices in all, counted as mesh-avatar builds them (meshVertices): about three times the
+ *    largest avatar measured, Mesh Avatar Studio's Miko sample with 41 575 (an avatar made from a LivLiv character has
+ *    25 000 to 38 000);
  *  - points: the entries of any one list in the rig (an outline, a strand's nodes, a seam);
- *  - strands, accessories, garments: hair strands, swinging accessories, cloth layers;
+ *  - strands, accessories, garments, overlays: hair strands, swinging accessories, cloth layers, overlays.json entries;
  *  - garmentSide: a garment's columns, and its rows.
- *  The rig's picture size (rig.image) must also be the base picture's own. */
+ *  The rig's picture size (rig.image) must also be the base picture's own, and its accessories' names its own each. */
 export const MAVATAR_LIMITS = {
-  side: 8192, pixels: 64 * 2 ** 20, json: 2 ** 20, cell: 2, vertices: 262_144,
-  points: 512, strands: 64, accessories: 32, garments: 16, garmentSide: 64,
+  side: 8192, pixels: 64 * 2 ** 20, json: 2 ** 20, cell: 2, vertices: 131_072,
+  points: 512, strands: 64, accessories: 32, garments: 16, overlays: 64, garmentSide: 64,
 } as const
 
 type Runtime = typeof import('mesh-avatar')
@@ -84,7 +85,7 @@ export async function entriesOf(files: Map<string, Blob>, MA: Runtime): Promise<
 
 /** The avatar's manifest and rig, once its files pass mesh-avatar's own checks and this player's limits (see
  *  MAVATAR_LIMITS): nothing is decoded or built before */
-export function inspect(entries: Entries, file: string, MA: Runtime): { manifest: AvatarManifest; rig: Rig } {
+export async function inspect(entries: Entries, file: string, MA: Runtime): Promise<{ manifest: AvatarManifest; rig: Rig }> {
   // the JSON files' sizes, before any is parsed
   for (const [path, data] of Object.entries(entries)) {
     if (path.endsWith('.json') && data.byteLength > MAVATAR_LIMITS.json) throw tooLarge(file, `${path} has ${data.byteLength} bytes, more than ${MAVATAR_LIMITS.json}`)
@@ -113,15 +114,24 @@ export function inspect(entries: Entries, file: string, MA: Runtime): { manifest
   } catch (e) { throw refused(file, e) }
   const layers = parse('built/layers.json') as { layers?: Record<string, number[]> }
   const sprites = entries['built/sprites/sprites.json'] ? parse('built/sprites/sprites.json') as { layers?: Record<string, number[]> } : null
-  const overlays = [...sizes].filter(([p]) => p.startsWith('built/overlays/')).map(([, s]) => s)
+  // overlays.json: mesh-avatar meshes each entry, over its picture's opaque part (the picture by the entry's name: the
+  // last entry of that name's file)
+  const list = entries['built/overlays/overlays.json'] ? (parse('built/overlays/overlays.json') as { overlays?: unknown }).overlays : []
+  const items = Array.isArray(list) ? list as { name?: unknown; file?: unknown }[] : []
+  if (items.length > MAVATAR_LIMITS.overlays) throw tooLarge(file, `${items.length} overlays (${MAVATAR_LIMITS.overlays} at most)`)
+  const byName = new Map(items.map((o) => [String(o?.name), `built/overlays/${String(o?.file)}`]))
+  const opaque = new Map<string, number[] | null>()
+  for (const path of new Set(byName.values())) opaque.set(path, entries[path] ? await opaqueRect(entries[path], sizes.get(path)!) : null)
+  const overlays = items.map((o) => opaque.get(byName.get(String(o?.name))!) ?? null).filter((r): r is number[] => !!r)
   limits(rig, layers, sprites, overlays, sizes.get('built/base.png'), file)
   return { manifest, rig }
 }
 
-/** the rig's cost against MAVATAR_LIMITS: its picture size the base picture's, its lists, cells and meshes
+/** the rig's cost against MAVATAR_LIMITS: its picture size the base picture's, its lists, cells and meshes. `overlays`:
+ *  each overlays.json entry's opaque rectangle, as mesh-avatar meshes it
  *  @internal (exported for its tests) */
 export function limits(rig: Rig, layers: { layers?: Record<string, number[]> }, sprites: { layers?: Record<string, number[]> } | null,
-  overlays: [number, number][], base: [number, number] | undefined, file: string) {
+  overlays: number[][], base: [number, number] | undefined, file: string) {
   const L = MAVATAR_LIMITS, R = rig as unknown as Record<string, unknown>
   if (!base || rig.image.width !== base[0] || rig.image.height !== base[1]) {
     throw new LivLivError('invalid', `LivLiv: ${file}'s rig is for a picture of ${rig.image.width} x ${rig.image.height}, and its base picture is ${base ? base.join(' x ') : 'missing'}`)
@@ -137,16 +147,28 @@ export function limits(rig: Rig, layers: { layers?: Record<string, number[]> }, 
   const count = (k: string) => (Array.isArray(R[k]) ? (R[k] as unknown[]).length : 0)
   if (count('strands') > L.strands) throw tooLarge(file, `${count('strands')} hair strands (${L.strands} at most)`)
   if (count('accessories') > L.accessories) throw tooLarge(file, `${count('accessories')} accessories (${L.accessories} at most)`)
+  const names = (rig.accessories ?? []).map((a) => String(a?.name))
+  if (new Set(names).size !== names.length) throw new LivLivError('invalid', `LivLiv: ${file}'s rig names an accessory twice`)
   if (count('cloth') > L.garments) throw tooLarge(file, `${count('cloth')} garments (${L.garments} at most)`)
   for (const c of rig.cloth ?? []) {
     const cols = c.seams?.length || (c.columns ?? 8), rows = c.rows ?? 5, tiers = c.tiers?.length ?? 0
     if (cols > L.garmentSide || rows > L.garmentSide || tiers > L.garmentSide) throw tooLarge(file, `the garment ${String(c.name).slice(0, 40)} has ${cols} columns, ${rows} rows and ${tiers} tiers (${L.garmentSide} each at most)`)
   }
-  // the cells, then the meshes' vertices as mesh-avatar lays its grids (renderer.js axis and buildGrid)
-  const mesh = rig.mesh as Rig['mesh'] & { clothCell?: number }
+  const vertices = meshVertices(rig, layers, sprites, overlays, L.vertices, (name, v) => tooLarge(file, `rig.mesh.${name} is ${String(v)} px (${L.cell} at least)`))
+  if (vertices > L.vertices) throw tooLarge(file, `its meshes would have more than ${L.vertices} vertices (mesh cells too small for its pictures)`)
+}
+
+/** the vertices of the meshes mesh-avatar builds for an avatar, laid as it lays them (createMeshAvatar.js, renderer.js
+ *  axis and buildGrid, sprites.js, overlays.js): the base over rig.image (finer in mesh.fine), four parts for each eye,
+ *  the hand, one mesh for each accessory and each garment (by its name's rectangle in layers.json), one for each sprite,
+ *  one for each overlays.json entry. Counting stops past `stop`; a cell under MAVATAR_LIMITS.cell is `bad`
+ *  @internal (exported for its tests and for measuring real avatars) */
+export function meshVertices(rig: Rig, layers: { layers?: Record<string, number[]> }, sprites: { layers?: Record<string, number[]> } | null,
+  overlays: number[][], stop = Infinity, bad: (name: string, value: unknown) => Error = (n, v) => new RangeError(`${n}: ${String(v)}`)): number {
+  const L = MAVATAR_LIMITS, mesh = rig.mesh as Rig['mesh'] & { clothCell?: number }, rects = layers.layers ?? {}
   const cell = (name: string, v: unknown, fallback?: number) => {
     const c = v === undefined && fallback !== undefined ? fallback : v
-    if (typeof c !== 'number' || !Number.isInteger(c) || c < L.cell) throw tooLarge(file, `rig.mesh.${name} is ${String(c)} px (${L.cell} at least)`)
+    if (typeof c !== 'number' || !Number.isInteger(c) || c < L.cell) throw bad(name, c)
     return c
   }
   const C = {
@@ -154,24 +176,42 @@ export function limits(rig: Rig, layers: { layers?: Record<string, number[]> }, 
     tassel: cell('tasselCell', mesh.tasselCell), ball: cell('eyeBallCell', mesh.eyeBallCell), eye: cell('eyeCell', mesh.eyeCell),
     sprite: cell('spriteCell', mesh.spriteCell), cloth: cell('clothCell', mesh.clothCell, 8),
   }
-  const fine = mesh.fine
   let vertices = 0
-  const add = (rect: unknown, c: number, f?: { from: number; to: number }[]) => {
-    if (!Array.isArray(rect) || rect.length !== 4 || !rect.every((n) => typeof n === 'number' && Number.isFinite(n))) return
+  const add = (rect: unknown, c: number, f?: { from: number; to: number; cell: number }[]) => {
+    if (vertices > stop || !Array.isArray(rect) || rect.length !== 4 || !rect.every((n) => typeof n === 'number' && Number.isFinite(n))) return
     const [x, y, w, h] = rect as number[]
     vertices += steps(x, Math.min(w, L.side), c, f?.[0]) * steps(y, Math.min(h, L.side), c, f?.[1])
-    if (vertices > L.vertices) throw tooLarge(file, `its meshes would have more than ${L.vertices} vertices (mesh cells too small for its pictures)`)
   }
-  add([0, 0, rig.image.width, rig.image.height], C.base, [{ from: fine.x0, to: fine.x1 }, { from: fine.y0, to: fine.y1 }].map((r) => ({ ...r, cell: C.fine })))
-  for (const [name, rect] of Object.entries(layers.layers ?? {})) {
-    add(rect, /^eye\d+_ball$/.test(name) ? C.ball : /^eye\d+_/.test(name) ? C.eye : name === 'hand' ? C.hand : name.startsWith('cloth_') ? C.cloth : C.tassel)
-  }
+  const fine = mesh.fine
+  add([0, 0, rig.image.width, rig.image.height], C.base, [{ from: fine.x0, to: fine.x1, cell: C.fine }, { from: fine.y0, to: fine.y1, cell: C.fine }])
+  rig.eyes.forEach((_, i) => { for (const part of ['ball', 'low', 'crease', 'lash']) add(rects[`eye${i}_${part}`], part === 'ball' ? C.ball : C.eye) })
+  if (rig.hand) add(rects.hand, C.hand)
+  for (const a of rig.accessories ?? []) add(rects[String(a?.name)], C.tassel)
+  for (const c of rig.cloth ?? []) add(rects[`cloth_${String(c?.name)}`], C.cloth)
   for (const rect of Object.values(sprites?.layers ?? {})) add(rect, C.sprite)
-  for (const [w, h] of overlays) add([0, 0, w, h], C.sprite)
+  for (const rect of overlays) add(rect, C.sprite)
+  return vertices
+}
+
+/** an overlay picture's opaque part as mesh-avatar finds it (overlays.js opaqueRect: alpha over 3, 6 px around), read
+ *  from the decoded picture where the page can decode one; without (no DOM), the whole picture */
+async function opaqueRect(data: Uint8Array, [w, h]: [number, number]): Promise<number[]> {
+  if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return [0, 0, w, h]
+  try {
+    const bitmap = await createImageBitmap(new Blob([data as BlobPart]))
+    const g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true })!
+    g.drawImage(bitmap, 0, 0); bitmap.close()
+    const a = g.getImageData(0, 0, w, h).data
+    let x0 = w, y0 = h, x1 = -1, y1 = -1
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (a[4 * (y * w + x) + 3] > 3) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y }
+    if (x1 < 0) return [0, 0, 0, 0]
+    const left = Math.max(0, x0 - 6), top = Math.max(0, y0 - 6)
+    return [left, top, Math.min(w, x1 + 7) - left, Math.min(h, y1 + 7) - top]
+  } catch { return [0, 0, w, h] }
 }
 
 /** points along one side of a grid, as mesh-avatar's axis() lays them: a cell apart, a finer one inside `fine` */
-function steps(start: number, len: number, cell: number, fine?: { from: number; to: number; cell?: number }) {
+function steps(start: number, len: number, cell: number, fine?: { from: number; to: number; cell: number }) {
   let n = 1
   for (let v = start; v < start + len - 0.5; n++) v = Math.min(start + len, v + (fine?.cell && v >= fine.from && v < fine.to ? fine.cell : cell))
   return n

@@ -11,7 +11,7 @@
   // way, at the exact size asked for, with the Player's move; its expressions are mesh-avatar's own numbers; bad files
   // are refused with the right code, and the context's loss and release go as a Player's do.
   import { BodyPlayer } from '../dist/body.js'
-  import { MavatarBody } from '../dist/mavatar.js'
+  import { MavatarBody, checkMavatar } from '../dist/mavatar.js'
   import { loadMeshAvatar, packAvatar, unpackAvatar } from 'mesh-avatar'
 
   const g = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
@@ -143,6 +143,21 @@
     const other = await player(archive(bytes, { 'avatar.json': new TextEncoder().encode('{"format":"mesh-avatar","version":1,"name":"Other"}') }))
     out.other = base(other) !== first && other.model.name === 'Other'
     c.dispose(); other.dispose()
+    return out
+  }
+
+  /** overlays as mesh-avatar meshes them, over each picture's opaque part: a small one (glasses) passes and plays; forty
+   *  entries naming one opaque base-sized picture would build forty meshes, and are refused */
+  window.runMavatarOverlays = async (url) => {
+    const bytes = await fixture(url), files = unpackAvatar(bytes), [w, h] = JSON.parse(new TextDecoder().decode(files['built/layers.json'])).size
+    const c = new OffscreenCanvas(w, h), g = c.getContext('2d'); g.fillStyle = '#223'; g.fillRect(w * 0.35, h * 0.24, w * 0.3, h * 0.05)
+    const glasses = new Uint8Array(await (await c.convertToBlob({ type: 'image/png' })).arrayBuffer())
+    const withOverlays = (file, n) => archive(bytes, { [`built/overlays/${file}.png`]: file === 'glasses' ? glasses : files['built/base.png'],
+      'built/overlays/overlays.json': new TextEncoder().encode(JSON.stringify({ version: 1, overlays: Array.from({ length: n }, (_, i) => ({ name: `o${i}`, file: `${file}.png` })) })) })
+    const out = {}
+    try { out.small = (await checkMavatar(withOverlays('glasses', 1))).name } catch (e) { out.small = codeOf(e) }
+    try { const p = await player(withOverlays('glasses', 1)); out.plays = p.model.name; p.dispose() } catch (e) { out.plays = codeOf(e) }
+    try { await checkMavatar(withOverlays('base', 40)); out.forty = 'passed' } catch (e) { out.forty = codeOf(e) }
     return out
   }
 

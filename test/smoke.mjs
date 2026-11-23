@@ -679,6 +679,8 @@ try {
     line(!wrong.length, wrong.length ? `the poses: ${wrong.join(', ')}: ${JSON.stringify(m)}` : `the poses (${Object.keys(P).length}): turns, rolls, eyes, mouth shapes, ${ids.length} expressions, the move, time`)
     const shared = await p.evaluate((u) => window.runMavatarShared(u), fixture)
     line(shared.together && shared.after && shared.other, `the same avatar loaded again plays from the same package: ${JSON.stringify(shared)}`)
+    const ov = await p.evaluate((u) => window.runMavatarOverlays(u), fixture)
+    line(ov.small === 'Nana' && ov.plays === 'Nana' && ov.forty === 'too-large', `overlays counted as mesh-avatar meshes them: ${JSON.stringify(ov)}`)
     const no = await p.evaluate(([u, b]) => window.runMavatarRefusals(u, b), [fixture, '/__bomb.png'])
     line(no.garbage === 'not-a-model' && no.bomb === 'too-large' && no.badRig === 'invalid' && no.missing === 'missing-file' && no.none === 'missing-file'
       && no.webglCanvas === 'canvas-in-use' && no.after === 'not-a-model' && no.kept, `refused, and the avatar before kept: ${JSON.stringify(no)}`)

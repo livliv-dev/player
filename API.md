@@ -615,9 +615,10 @@ paths outside the archive), 200 entries and 64 MB each at most, and checks its r
 decoded or built, the player holds it to `MAVATAR_LIMITS` (`@livliv-dev/player/mavatar`), since mesh-avatar builds its
 meshes from the rig's numbers, not from the pictures: every picture measured from its header (8192 px a side,
 67 108 864 pixels in all); each JSON file 1 MB; the rig's picture size the base picture's own; mesh cells of 2 px at
-least; the meshes' vertices, counted from the rig and the layers as mesh-avatar lays its grids, 262 144 in all (an
-avatar made in Mesh Avatar Studio has some 20 000); any list in the rig 512 entries; 64 hair strands, 32 accessories,
-16 garments of 64 columns and rows at most. All of a body's files are 256 MB at most (`BODY_LIMIT`). mesh-avatar keeps
+least; the meshes' vertices, counted as mesh-avatar builds them (one mesh per eye part, accessory, garment, sprite and
+overlays.json entry, an overlay over its picture's opaque part), 131 072 in all, about three times Mesh Avatar Studio's
+Miko sample (41 575); any list in the rig 512 entries; 64 hair strands, 32 accessories (each named once), 16 garments of
+64 columns and rows, 64 overlays at most. All of a body's files are 256 MB at most (`BODY_LIMIT`). mesh-avatar keeps
 every picture it has loaded for the life of the page; the player gives the same avatar loaded again the same package,
 so playing it again does not add to that, while each different avatar does. Security reports:
 [SECURITY.md](SECURITY.md).
