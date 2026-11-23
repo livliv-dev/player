@@ -474,7 +474,11 @@ await vrm.load('/avatars/me.vrm')            // a URL, a File, or files picked
   A VRM carries its author's terms, and `load()` gives them in `model.meta` (`VrmTerms`), 1.0 and 0.x said alike: `author`,
   `license`, `use` (who may play it), `commercial`, `violence`, `sexual`, `redistribution` and `modification` (1.0 only), the
   file's own words in `raw`. The player does not enforce them. A page playing other people's avatars should show them and
-  keep to them, as you would with a LivLiv package's `meta.license`.
+  keep to them, as you would with a LivLiv package's `meta.license`. A VRM 1.0 whose licence URL is not VRM's own (the
+  author's terms page, an exporter's field filled in) plays too, with that URL in `license.url`; three-vrm alone refuses it.
+  Node constraints that depend on each other in a circle are left out, with a warning in the console, rather than the
+  whole file refused. A file that cannot play says why in the exporter's terms (bones the humanoid lacks, a VRM without
+  its meta, a VRM version this player does not read).
 - **Your own**: anything with `load(files)`, `render(canvas, pose, w, h, dt)`, `head()` and `dispose()` (the `Body`
   type), and if it cares which canvas it gets, `attach(canvas)`. One that draws with WebGL can also have `context()`, returning
   its context, so that `contextLost` and `dispose({ release })` work for it. `pose` has the params after the idle motion and the

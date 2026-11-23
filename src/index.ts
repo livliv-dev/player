@@ -127,6 +127,7 @@ export class Player extends PlayerBase<ModelInfo> {
     let files: Exclude<ModelSource, string | URL> | null = null
     if (typeof source === 'string' || source instanceof URL) {
       const url = new URL(String(source), document.baseURI)
+      if (/\.(vrm|glb)$/i.test(url.pathname)) throw vrmHere()  // a VRM by its URL, as a picked one is: said so, nothing fetched
       if (/\.(livliv|zip)$/i.test(url.pathname)) {
         job.progress(0)
         files = await fetchPackage(url.href, job)

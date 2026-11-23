@@ -391,6 +391,28 @@ try {
   if (!noOk) failed++
   console.log(`${noOk ? 'ok  ' : 'FAIL'} VRM files refused, the character before kept (${no.kept}), outside requests ${outsideAsked}: ${[no.noMesh, no.draco, no.bigImage, no.outside, no.plainFile].map((m) => m.replace(/^LivLiv: \S+ /, '').slice(0, 34)).join(' | ')}`)
 
+  // as VRM Add-on for Blender writes them (issue #1): both specs play; a licence URL of the author's own and node
+  // constraints in a circle play too (0.5 refused both); what cannot play says why in the exporter's terms
+  {
+    const urls = { b1: tiny({ blender: true }), b0: tiny({ blender: true, spec: 0 }), licence: tiny({ blender: true, licenseUrl: 'https://example.com/terms' }),
+      circular: tiny({ blender: true, circular: true }), bones: tiny({ blender: true, missing: ['leftFoot'] }), meta: tiny({ blender: true, spec: 0, noMeta: true }),
+      spec: tiny({ blender: true, spec1: '1.1' }) }
+    const warned = []
+    const listen = (m) => { if (/node constraints/.test(m.text())) warned.push(m.text()) }
+    page.on('console', listen)
+    const r = await page.evaluate((u) => window.runVrmTry(u), urls)
+    page.off('console', listen)
+    const plays = (x) => x && !x.error && x.share > 0.02
+    const checks = {
+      'Blender 1.0': plays(r.b1), 'Blender 0.x': plays(r.b0), "the author's licence URL": plays(r.licence) && r.licence.licence === 'https://example.com/terms',
+      'constraints in a circle': plays(r.circular) && warned.length === 1, 'missing bones': /lacks humanoid bones .*leftFoot.*Humanoid panel/.test(r.bones.error),
+      'no meta': /without its meta.*Meta panel/.test(r.meta.error), 'another spec': /is VRM 1\.1, and this player reads VRM 1\.0 and 0\.x/.test(r.spec.error),
+    }
+    const wrong = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k)
+    if (wrong.length) failed++
+    console.log(`${wrong.length ? 'FAIL' : 'ok  '} VRM as Blender exports it: ${Object.keys(checks).join(', ')}${wrong.length ? `: ${wrong.join(', ')} ${JSON.stringify(r)}` : ''}`)
+  }
+
   // in any units: a character 100 times too big, or a tenth of the size, still fills the frame
   for (const unit of [100, 0.1]) {
     const u = encodeURIComponent(JSON.stringify({ unit }))
@@ -525,6 +547,44 @@ try {
     }
     await p.close()
   }
+  // the example pages say what went wrong on the page: a VRM on the LivLiv page (and where to open it instead), a VRM
+  // that cannot play on the VRM page (three.js and three-vrm served here in place of their CDN), a Blender VRM that
+  // plays there, an error nobody caught, a part of the page that did not load
+  {
+    const local = { 'https://cdn.jsdelivr.net/npm/three@0.186.0/': 'node_modules/three/', 'https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/': 'node_modules/@pixiv/three-vrm/' }
+    const page2 = async (path, cdn = true) => {
+      const p = await browser.newPage()
+      await p.route('https://cdn.jsdelivr.net/**', (route) => {
+        const u = route.request().url(), at = Object.keys(local).find((k) => u.startsWith(k))
+        if (!cdn || !at) return route.fulfill({ status: 404, body: '' })
+        const f = join(root, local[at], u.slice(at.length))
+        return existsSync(f) ? route.fulfill({ status: 200, contentType: 'text/javascript', body: readFileSync(f) }) : route.fulfill({ status: 404, body: '' })
+      })
+      await p.goto(`http://127.0.0.1:${server.address().port}/example/${path}`)
+      return p
+    }
+    const status = async (p, re) => p.waitForFunction((src) => new RegExp(src).test(document.getElementById('status').textContent), re.source, { timeout: 20000 })
+      .then(() => p.evaluate(() => document.getElementById('status').textContent), async () => `TIMEOUT: ${await p.evaluate(() => document.getElementById('status').textContent)}`)
+    const said = {}
+    let p = await page2(`demo.html?model=${encodeURIComponent(tiny({ blender: true }))}`)
+    said.vrmOnDemo = await status(p, /BodyPlayer/); said.link = await p.evaluate(() => !!document.querySelector('#status a[href="vrm.html"]'))
+    await p.evaluate(() => setTimeout(() => { throw new Error('a test error nobody caught') }))
+    said.uncaught = await status(p, /Something went wrong: a test error nobody caught/)
+    await p.close()
+    p = await page2(`vrm.html?model=${encodeURIComponent(tiny({ blender: true, missing: ['leftFoot'] }))}`)
+    said.bones = await status(p, /lacks humanoid bones/)
+    await p.close()
+    p = await page2(`vrm.html?model=${encodeURIComponent(tiny({ blender: true }))}`)
+    said.plays = await status(p, /vrm/)
+    await p.close()
+    p = await page2(`vrm.html?model=${encodeURIComponent(tiny({ blender: true }))}`, false)
+    said.noThree = await status(p, /could not load three|did not load/)
+    await p.close()
+    const ok = /use a BodyPlayer/.test(said.vrmOnDemo) && said.link && !/TIMEOUT/.test(said.uncaught) && /leftFoot/.test(said.bones) && !/TIMEOUT|Something/.test(said.plays) && !/TIMEOUT/.test(said.noThree)
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the example pages say what went wrong: ${Object.entries(said).map(([k, v]) => `${k}: ${String(v).slice(0, 70)}`).join(' | ')}`)
+  }
+
   // ?model=: never a request to another site, however it is written; the page's own files still open
   for (const name of ['demo', 'vrm']) {
     const p = await browser.newPage(), asked = []
