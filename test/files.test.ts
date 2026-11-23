@@ -64,14 +64,18 @@ test('cancelling local package reads rejects with the original abort reason', as
   }
 })
 
-test('modelFiles takes every name load() would, and refuses the ones unzip refuses', async () => {
+test('modelFiles takes names with # and ?, and refuses what leaves the package, control characters and ":"', async () => {
   const blob = new Blob(['x'])
-  const ok = ['textures/a#b.webp', 'notes: v2.txt', 'x?.png', './model.json', 'folder\\inner\\file.png', 'a..b/c.webp', '.hidden']
+  const ok = ['textures/a#b.webp', 'x?.png', './model.json', 'folder\\inner\\file.png', 'a..b/c.webp', '.hidden', 'notes v2 (final).txt']
   const got = await modelFiles(new Map(ok.map((k) => [k, blob])))
-  assert.deepEqual([...got.keys()], ['textures/a#b.webp', 'notes: v2.txt', 'x?.png', 'model.json', 'folder/inner/file.png', 'a..b/c.webp', '.hidden'])
+  assert.deepEqual([...got.keys()], ['textures/a#b.webp', 'x?.png', 'model.json', 'folder/inner/file.png', 'a..b/c.webp', '.hidden', 'notes v2 (final).txt'])
   for (const bad of ['../model.json', '/etc/x', 'C:/x.png', 'c:x', 'a/./b', 'a/../b', 'a/..', '']) {
-    await assert.rejects(modelFiles(new Map([[bad, blob]])), { name: 'LivLivError', code: 'invalid', message: /outside its package/ }, bad)
+    await assert.rejects(modelFiles(new Map([[bad, blob]])), { name: 'LivLivError', code: 'invalid', message: /outside its package/ }, JSON.stringify(bad))
     if (bad) assert.equal(leavesPackage(bad.replace(/^(\.\/)+/, '')), true, bad)
+  }
+  for (const bad of ['tex.webp:stream', 'notes: v2.txt', 'a\u0000b.png', 'tab\there.png', 'line\nbreak', 'x\u001f', 'del\u007f.png']) {
+    await assert.rejects(modelFiles(new Map([[bad, blob]])), { name: 'LivLivError', code: 'invalid', message: /cannot safely have/ }, JSON.stringify(bad))
+    assert.equal(leavesPackage(bad), false, `${JSON.stringify(bad)}: a package may hold it, and load() reads one that does`)
   }
 })
 

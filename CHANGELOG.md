@@ -41,8 +41,9 @@ will see is long hair swinging (below).
   circle are left out with a warning instead of refusing the file; a file that cannot play says why in the exporter's
   terms (bones the humanoid lacks, no meta, a VRM version this player does not read). A `.vrm` URL given to a `Player`
   says to use a `BodyPlayer`.
-- **`modelFiles()` takes the names `load()` takes** (`#`, `?` and `:` included) and refuses, as opening a `.livliv`
-  does, only a name that would leave the package. Its errors name the file.
+- **`modelFiles()` takes names with `#` and `?`**, which it refused before, as `load()` takes them. Its paths stay safe
+  to write out: it refuses a name that would leave the package (as opening a `.livliv` does), and one with a control
+  character or `:`, now from a package too. Its errors name the file.
 - **A model's first frame draws everything once, out of sight** (Player only): every layer's pictures, the eyes'
   masks, the stencil. Some browsers put off a texture's upload until it is first drawn, so the first blink, glance or
   expression after a load could stall a frame. The renderer underneath has it as a switch (`Puppet.prewarm`), off.
