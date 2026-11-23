@@ -5,14 +5,14 @@
 import type { AnchorName, AttachmentAnchor } from './anchors'
 export type { AnchorName, AttachmentAnchor } from './anchors'
 import { langOf, pickLabel, readModel, type Labels, type ModelMeta } from './runtime/format'
-import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, loadBlob, type KeyformFile, type ModelDef, type Params } from './runtime/puppet'
+import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
 import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LivLivErrorCode, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
 import { Mark } from './mark'
 import { claimCanvas } from './release'
 import { ZIP_LIMITS, isZip, unzip } from './zip'
 
 export { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, defaultParams }
-export type { Labels, ModelDef, ModelMeta, Params }
+export type { Labels, ModelDef, ModelMeta, Params, Tuning }
 export { modelFiles } from './files'
 export { LivLivError }
 export type { ParameterProfile, ParameterSample, ParameterRule } from './profile'
@@ -94,6 +94,8 @@ export class Player extends PlayerBase<ModelInfo> {
   protected get clock() { return this.puppet.time }
   /** @internal */
   protected get shownExpr() { return this.puppet.expr }
+  /** @internal */
+  protected get feel() { return this.puppet.tuning }
   /** @internal */
   protected seen() { return this.puppet }
 

@@ -8,12 +8,14 @@
 import { ActionPlayer, type ActionId as AnyAction } from './runtime/actions'
 import { uiLang } from './runtime/format'
 import { PARAM_RANGES, defaultParams, type Params } from './runtime/params'
+import type { Tuning } from './runtime/puppet'
 import { LivLivError } from './errors'
 import { Idle, type Seen } from './follow'
 import { releaseCanvas } from './release'
 import { TrackingFilter, type ParameterProfile, type ParameterSample } from './profile'
 
 export { LivLivError, type LivLivErrorCode } from './errors'
+export type { Tuning }
 
 /** a short move: see act() */
 export type ActionId = Exclude<AnyAction, 'away'>
@@ -106,6 +108,9 @@ export interface Host {
   use(driver: Driver): () => void
   /** blinks now (with the idle motion on) */
   blink(): void
+  /** the character's feel settings (see Tuning). Lip sync reads `mouth`, face tracking `mouth` and `expr`. A host of your
+   *  own may leave it out: everything at 1 */
+  readonly tuning?: Readonly<Tuning>
 }
 
 /** how far a load has come: the files coming in (0..1, in step order, 1 once they are all here; where the size is not
@@ -171,6 +176,12 @@ function inRange(P: Params) {
   }
 }
 const finite = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback)
+/** a feel setting as the player reads it: a number from 0 up, anything else (missing, null, NaN, below 0) the default 1
+ *  @internal */
+export const factor = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 1)
+/** every feel setting at its default: what a character that says nothing plays with
+ *  @internal */
+export const defaultFeel = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
 const FITS: readonly Fit[] = ['frame', 'whole', 'knee']
 /** the deepest a recorded pose may crouch or dip a full-body character (a share of its frame's height): live ones reach
  *  about 0.07, and a whole frame's height would fold the legs past the feet */
@@ -206,6 +217,9 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
 
   /** @internal */
   protected info: Info | null = null
+  /** the feel settings it plays with now, live (a Player's are its puppet's)
+   *  @internal */
+  protected abstract get feel(): Tuning
   /** @internal */
   protected disposed = false
   private idler = new Idle()
@@ -299,6 +313,10 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
 
   /** the loaded character (null before the first load) */
   get model(): Info | null { return this.info }
+
+  /** The character's feel settings as they play now, each a factor with 1 the default (see Tuning): a Player's come from
+   *  its model's `tuning`, and each load starts again from the new character's own. A frozen copy */
+  get tuning(): Readonly<Tuning> { return Object.freeze({ ...this.feel }) }
   // the return type is the model's own expressions: without it the declaration emitter resolves Info['expressions']
   // to the constraint ({ id: string }[]) and consumers lose `label` / `labels`
   get expressions(): Info['expressions'] { return this.info?.expressions ?? [] as Info['expressions'] }
@@ -512,6 +530,7 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     // the pose from scratch: your values, the idle motion, the drivers
     this.idler.shown(P)
     Object.assign(P, this.params)
+    this.idler.lv.blinkRate = factor(this.feel.blink)
     if (this.idle) {
       this.idler.apply(P, t, dt, { busy: A.busy || this.was.mouth > 0.05, tracked: this.was.tracked,
         faceFree: !this.smile && !Object.values(E).some((v) => v > 0.02) })

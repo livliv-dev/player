@@ -235,6 +235,15 @@ try {
     console.log(`${wrong.length ? 'FAIL' : 'ok  '} a full-body character${wrong.length ? `: ${wrong.join(', ')}: ${JSON.stringify(r)}` : `: head ${r.shots.frame.head.toFixed(2)} / ${r.shots.knee.head.toFixed(2)} / ${r.shots.whole.head.toFixed(2)} of the width by shot, feet ${r.restFeet} px up at rest, ${r.crouchFeet} crouched, ${r.sunkFeet} asked to sink, ${r.liftFeet} lifted`}`)
   }
 
+  // the feel settings (see runTuning)
+  {
+    const r = await page.evaluate((id) => window.runTuning(id), ids.find((i) => i === 'k01') ?? ids[0])
+    const t = r.read
+    const ok = t.blink === 2.5 && t.expr === 0.5 && t.mouth === 1.5 && t.hairFront === 1.2 && t.turn === 1 && r.frozen && r.still === 0
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame`)
+  }
+
   // a model that breaks while it is built (see runKeep): the character before stays, to the pixel
   const has = (test) => ids.find((id) => test(JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')), id))
   const rigged = has((m) => m.rig?.chains?.length && m.files?.keyforms) ?? kfId

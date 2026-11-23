@@ -629,6 +629,22 @@
     return out
   }
 
+  /** the character's feel settings (tuning): read from its model.json (v4 names), and blink, expr and mouth leave a still
+   *  frame as it was */
+  window.runTuning = async (id) => {
+    const m = bare(await json(id)), out = {}
+    const own = { ...m, tuning: { ...m.tuning, blink: 2.5, expr: 0.5, mouth: 1.5, hair_front: 1.2 } }
+    const b = await still(await filesOf(id, { ...own, tuning: { ...own.tuning, blink: 1, expr: 1, mouth: 1 } }))
+    const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+    await p.load(await filesOf(id, own))
+    out.read = { ...p.tuning }
+    out.frozen = Object.isFrozen(p.tuning)
+    p.resize()
+    out.still = changed(b.d, pixels())
+    p.dispose()
+    return out
+  }
+
   /** hostile packages: each must be refused (or, for broken keyforms, played on the rig alone), the model before kept */
   window.runHostile = async (id, kfId) => {
     const player = new Player(canvas, { autoplay: false, followPointer: false })

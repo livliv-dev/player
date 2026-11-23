@@ -7,13 +7,13 @@ import { projectedAnchor, type AnchorName, type AttachmentAnchor } from './ancho
 export type { AnchorName, AttachmentAnchor } from './anchors'
 import { pickLabel, type Labels } from './runtime/format'
 import { defaultParams, type Params } from './runtime/params'
-import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
+import { LivLivError, PlayerBase, aborted, contextGone, defaultFeel, readBody, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
 import type { Seen } from './follow'
 import { claimCanvas } from './release'
 
 export { LivLivError }
 export type { ParameterProfile, ParameterSample, ParameterRule } from './profile'
-export type { ActionId, Driver, Frame, Host, LivLivErrorCode, LoadOptions, LoadProgress, PlaybackPose, PlayerOptions, View } from './base'
+export type { ActionId, Driver, Frame, Host, LivLivErrorCode, LoadOptions, LoadProgress, PlaybackPose, PlayerOptions, Tuning, View } from './base'
 
 /** an expression a Body can show: `labels` its names by language (BCP 47 tag -> name), `label` the one to fall back on */
 export interface BodyExpression { id: string; label: string; labels?: Labels }
@@ -75,6 +75,8 @@ export class BodyPlayer extends PlayerBase<BodyInfo> {
   maxPixelRatio: number
   private pose: Pose
   private time = 0
+  /** a body character's file has no feel settings: they start at 1 */
+  private own = defaultFeel()
 
   constructor(canvas: HTMLCanvasElement, body: Body, options: BodyPlayerOptions = {}) {
     claimCanvas(canvas)
@@ -94,6 +96,8 @@ export class BodyPlayer extends PlayerBase<BodyInfo> {
   protected get clock() { return this.time }
   /** @internal */
   protected get shownExpr() { return this.pose.expr }
+  /** @internal */
+  protected get feel() { return this.own }
 
   /** the body's head in the terms the idle's pointAt reads a puppet in (its canvas shares as clip space)
    *  @internal */
