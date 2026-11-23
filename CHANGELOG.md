@@ -75,7 +75,8 @@ turned back on eases in instead of jumping; and blinks no longer show a see-thro
   is never turned off plays exactly as before.
 - The model schema compiles without warnings in ajv's default settings (it logged two); it accepts and refuses the same
   files.
-- The repository's featured characters are livliv.ai's current builds: 13 refreshed, Mochi and Kotaro gone (23).
+- The repository's featured characters are livliv.ai's current builds: 13 refreshed, Mochi and Kotaro gone (23). A page
+  that loads Mochi or Kotaro from GitHub Pages keeps working: their folders and packages stay there, unlisted.
 
 ## 0.5.1
 
