@@ -522,9 +522,9 @@ await mesh.load('/avatars/me.mavatar')       // a URL, a File, or its unpacked f
   exactly the size the player draws (a `renderPose` size, a canvas in no page), and the picture is copied into the
   player's canvas: so the player's canvas draws in 2D, as a PNGTuber's does, and `context()` is the WebGL2 context of the
   avatar's own canvas, one per character: `contextLost`, `onContextLost` and `dispose({ release })` work as for a VRM.
-  How many play smoothly: mesh-avatar moves each avatar's mesh on the main thread, about 5 ms a frame for one made in
-  Mesh Avatar Studio (Apple M4). Three run at 60 fps there, with little room left; more, or a slower machine, drop
-  frames. A page that offers many should say so.
+  How many play smoothly: mesh-avatar moves each avatar's mesh on the page's main thread, some 3–4 ms a frame for one
+  made in Mesh Avatar Studio (Apple M4). Three run at 60 fps there; six on one thread (a page and a window it opened)
+  about 47–50; a slower machine drops frames sooner. A page that offers many should say so.
   `checkMavatar(file)` checks a `.mavatar` (or its unpacked files) as `load()` does, before anything is decoded, and
   resolves with its name: for a page that takes files from people and would say no before it places a character.
   An avatar's `avatar.json` gives a name, an author and a licence, a free text: `load()` gives them in `model.meta`
