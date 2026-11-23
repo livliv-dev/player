@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.6.0
+
+Long hair that swings, feel settings an editor can change while the character plays, an advanced entry for code that
+runs the renderer itself, and VRM files from Blender that play. A page written for 0.5 needs no change; the one thing it
+will see is long hair swinging (below).
+
+### New
+
+- **Feel settings, live.** `player.tuning` is the character's feel settings as it plays (its model's `tuning`; a frozen
+  copy), and `player.setTuning(changes)` changes some of them without loading the character again: `undefined` puts
+  one back to the model's own, each load starts from the new character's own. On `Player` and `BodyPlayer`. Changing
+  `turn`, `nod` or `fringe` on a model with keyforms measures its key poses again, so it draws exactly as it would
+  loaded with those settings. See [API.md](API.md#feel-settings-tuning-and-settuning).
+- **`blink`, `expr` and `mouth` from the model's `tuning` count**, as on livliv.ai: how often the idle motion blinks,
+  how readily face tracking reads a smile, how far face tracking and live lip sync open the mouth (lip sync's own
+  `gain` multiplies with it). A `Host` may carry `tuning` (optional): drivers read it there.
+- **`load(source, { continueMotion: true })`**: the same character loaded again (an editor's change) goes on moving
+  from its last frame (its springs, the body's lag, the long hair's swing, the expression showing) instead of starting
+  again at rest.
+- **`@livliv-dev/player/runtime`**, an advanced entry: the renderer (`Puppet`) and the motion modules, for code that
+  runs its own frame loop, with `meshes()`, `rgbaAt()` and `layersAt()` to ask what is drawn where. Outside the
+  compatibility promise of the other entries: pin the exact version. See [API.md](API.md#advanced-livliv-devplayerruntime).
+- **`packageModelJson(paths)`**: which `model.json` among a package's files is its own, as `load()` picks it.
+- **Format 4.2** ([FORMAT.md](FORMAT.md#5-profile-tuning-anchors)): `tuning.gaze`, `tuning.fringe` and
+  `tuning.hair_sway` in the schema, all optional. The player read `gaze` and `fringe` before, but the schema refused a
+  file that had them. The `Tuning` type is exported.
+
+### Changed
+
+- **Long hair swings below the shoulders** ([#15](https://github.com/livliv-dev/player/issues/15)). Below the jaw, long
+  hair used to follow the torso, so its tips moved less than the hair at the shoulders. A gentle pendulum, thrown by the
+  head's and the torso's moves and settling by itself, now swings it sideways, more toward the tips (twin tails and
+  ponytails included); hair over the body swings less. **Characters you already have move this way too: at their
+  default settings their hair tips sway when the head turns or the body leans.** A still frame is unchanged, and a
+  character whose `tuning.hairBack` (format 4: `hair_back`) or new `hairSway` (`hair_sway`) is 0 draws every frame as
+  in 0.5.
+- **VRM files from Blender** ([#1](https://github.com/livliv-dev/player/issues/1)): a VRM 1.0 whose licence URL is not
+  VRM's own (the author's terms page) plays, with that URL in its terms; node constraints that depend on each other in a
+  circle are left out with a warning instead of refusing the file; a file that cannot play says why in the exporter's
+  terms (bones the humanoid lacks, no meta, a VRM version this player does not read). A `.vrm` URL given to a `Player`
+  says to use a `BodyPlayer`.
+- **`modelFiles()` takes the names `load()` takes** (`#`, `?` and `:` included) and refuses, as opening a `.livliv`
+  does, only a name that would leave the package. Its errors name the file.
+- **A model's first frame draws everything once, out of sight** (Player only): every layer's pictures, the eyes'
+  masks, the stencil. Some browsers put off a texture's upload until it is first drawn, so the first blink, glance or
+  expression after a load could stall a frame. The renderer underneath has it as a switch (`Puppet.prewarm`), off.
+- **The idle motion going on again doesn't jump.** After frames drawn with `idle` off, it used to go on from where it
+  had stopped, in one frame; now it eases in from the pose those frames showed, over 0.4 s. A player whose idle motion
+  is never turned off plays exactly as before.
+- The model schema compiles without warnings in ajv's default settings (it logged two); it accepts and refuses the same
+  files.
+- The repository's featured characters are livliv.ai's current builds: 13 refreshed, Mochi and Kotaro gone (23).
+
 ## 0.5.1
 
 Two optional settings for how strongly a character moves. A page that doesn't use them draws exactly as with 0.5.0.

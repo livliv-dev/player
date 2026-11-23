@@ -78,7 +78,9 @@ const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
 ```
 
-API の全体は [API.md](API.md)（英語）にあります：オプション、パラメーター、表情とアクション、ドライバー、記録したポーズと取り付け位置、VRM と PNGTuber、信頼できないファイルの上限、モデルパッケージ、フォーマットのバージョン。LivLiv のパッケージ形式（`.livliv`、`model.json` v4）は [FORMAT.md](FORMAT.md)、JSON Schema は [`schema/`](schema/) にあります。v4 より前に書き出したパッケージは [FORMAT-v3.md](FORMAT-v3.md) のとおりで、そのまま再生できます。
+API の全体は [API.md](API.md)（英語）にあります：オプション、パラメーター、表情とアクション、動きの調整、ドライバー、記録したポーズと取り付け位置、VRM と PNGTuber、信頼できないファイルの上限、モデルパッケージ、フォーマットのバージョン。LivLiv のパッケージ形式（`.livliv`、`model.json` v4）は [FORMAT.md](FORMAT.md)、JSON Schema は [`schema/`](schema/) にあります。v4 より前に書き出したパッケージは [FORMAT-v3.md](FORMAT-v3.md) のとおりで、そのまま再生できます。
+
+**0.6 の新機能：** 頭や体が動くと、肩より下の長い髪が左右に揺れます（モデルの `tuning.hair_sway` で揺れ幅を調整、0 で無効）。キャラクターの動きの調整（`tuning`：首の回り具合、髪の揺れ、まばたきの頻度など）は `player.tuning` で読み取り、`player.setTuning()` で再生中にそのまま変更できるので、エディターのスライダーに使えます。`load(source, { continueMotion: true })` を使えば、編集のたびに読み込み直しても動きが途切れません。Blender から書き出した VRM も再生できるようになりました。独自のフレームループを回すコードは、上級者向けの入口 `@livliv-dev/player/runtime` からレンダラーそのものを使えます。0.5 向けに書いたページは変更不要です。詳しくは API.md の [Feel settings](API.md#feel-settings-tuning-and-settuning) をご覧ください。
 
 > npm パッケージに入っているのはプレイヤーだけです。厳選キャラクターはこのリポジトリの [`characters/`](characters/) にあります。使うキャラクターをライセンスと一緒にページのそばにコピーしてください。
 

@@ -80,10 +80,17 @@ const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
 ```
 
-Toàn bộ API có trong [API.md](API.md) (tiếng Anh): các tùy chọn, tham số, biểu cảm và hành động, driver, tư thế đã ghi và điểm gắn, nhân vật VRM và PNGTuber,
+Toàn bộ API có trong [API.md](API.md) (tiếng Anh): các tùy chọn, tham số, biểu cảm và hành động, cài đặt cảm giác chuyển động, driver, tư thế đã ghi và điểm gắn, nhân vật VRM và PNGTuber,
 giới hạn khi đọc file không đáng tin cậy, gói model và phiên bản định dạng. Định dạng gói LivLiv (`.livliv`,
 `model.json` v4) có trong [FORMAT.md](FORMAT.md), kèm JSON Schema trong [`schema/`](schema/); các gói xuất trước v4
 được mô tả trong [FORMAT-v3.md](FORMAT-v3.md) và vẫn phát được.
+
+**Mới trong 0.6:** tóc dài phía dưới vai đung đưa sang hai bên khi đầu và thân chuyển động (`tuning.hair_sway` của mô hình
+quyết định biên độ, 0 là tắt). Các cài đặt cảm giác chuyển động của nhân vật (`tuning`: mức quay đầu, độ đung đưa của
+tóc, tần suất chớp mắt…) có thể đọc qua `player.tuning` và thay đổi ngay khi đang phát bằng `player.setTuning()`, phù hợp
+cho thanh trượt của trình chỉnh sửa; `load(source, { continueMotion: true })` giữ cho nhân vật tiếp tục chuyển động khi
+được tải lại sau mỗi lần chỉnh sửa. Tệp VRM xuất từ Blender giờ đã phát được. Mã tự chạy vòng lặp khung hình có thể lấy
+trực tiếp trình kết xuất từ lối vào nâng cao `@livliv-dev/player/runtime`. Trang viết cho 0.5 không cần sửa gì. Xem [Feel settings](API.md#feel-settings-tuning-and-settuning) trong API.md.
 
 > Gói npm chỉ có trình phát. Các nhân vật nổi bật nằm trong [`characters/`](characters/) của repository này: hãy sao chép
 > những nhân vật bạn dùng, kèm giấy phép, vào cạnh trang của bạn.

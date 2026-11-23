@@ -80,7 +80,9 @@ const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
 ```
 
-完整的 API 见 [API.md](API.md)（英文）：选项、参数、表情和动作、驱动、录下的姿态和挂点、VRM 和 PNGTuber、不可信文件的上限、模型包和格式版本。LivLiv 模型包格式（`.livliv`、`model.json` v4）见 [FORMAT.md](FORMAT.md)，JSON Schema 在 [`schema/`](schema/)；v4 之前导出的模型包见 [FORMAT-v3.md](FORMAT-v3.md)，照样能播放。
+完整的 API 见 [API.md](API.md)（英文）：选项、参数、表情和动作、手感设置、驱动、录下的姿态和挂点、VRM 和 PNGTuber、不可信文件的上限、模型包和格式版本。LivLiv 模型包格式（`.livliv`、`model.json` v4）见 [FORMAT.md](FORMAT.md)，JSON Schema 在 [`schema/`](schema/)；v4 之前导出的模型包见 [FORMAT-v3.md](FORMAT-v3.md)，照样能播放。
+
+**0.6 新增：** 头和身体动起来时，肩膀以下的长发会左右摆动（模型的 `tuning.hair_sway` 控制幅度，设为 0 即关闭）。角色的手感设置（`tuning`：转头幅度、头发晃动、眨眼频率等）可以用 `player.tuning` 读取，用 `player.setTuning()` 在播放中直接修改，适合编辑器的滑块；`load(source, { continueMotion: true })` 让编辑后重新加载的角色接着原来的动作继续动。Blender 导出的 VRM 文件也能播放了。自己跑帧循环的代码可以从高级入口 `@livliv-dev/player/runtime` 直接拿到渲染器。为 0.5 写的页面无需改动。详见 API.md 的 [Feel settings](API.md#feel-settings-tuning-and-settuning)。
 
 > npm 包里只有播放器。精选角色在这个仓库的 [`characters/`](characters/) 里，把要用的角色连同许可一起复制到你的页面旁边。
 

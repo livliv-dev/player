@@ -80,10 +80,17 @@ const png = new BodyPlayer(canvasB, new PngBody())
 await png.load({ closed: 'me-closed.png', open: 'me-open.png' })
 ```
 
-The whole API is in [API.md](API.md): options, params, expressions and actions, drivers, recorded poses and attachment
+The whole API is in [API.md](API.md): options, params, expressions and actions, feel settings, drivers, recorded poses and attachment
 points, VRM and PNGTuber characters, the limits on untrusted files, the model package and the format version. The LivLiv package format (`.livliv`,
 `model.json` v4) is in [FORMAT.md](FORMAT.md), with a JSON Schema in [`schema/`](schema/); packages exported before v4
 are described in [FORMAT-v3.md](FORMAT-v3.md) and still play.
+
+**New in 0.6:** long hair swings below the shoulders as the head and body move (a model's `tuning.hair_sway` sets how
+far; 0 turns it off). A character's feel settings (`tuning`: how far it turns, how freely its hair swings, how often it
+blinks …) can be read with `player.tuning` and changed while it plays with `player.setTuning()`, for an editor's
+sliders, and `load(source, { continueMotion: true })` keeps a character moving when an edit loads it again. VRM files
+exported from Blender play. Code that runs its own frame loop can take the renderer itself from an advanced entry,
+`@livliv-dev/player/runtime`. Pages written for 0.5 need no change. See [Feel settings](API.md#feel-settings-tuning-and-settuning) in API.md.
 
 > The npm package is the player alone. The featured characters are in this repository's [`characters/`](characters/): copy
 > the ones you use next to your page, with their licence.
