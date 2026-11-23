@@ -213,11 +213,24 @@ export const defaultRig = (): Rig => ({
  *  to FRINGE_MAX */
 export type Tuning = { turn: number; nod: number; hair: number; blink: number; expr: number; mouth: number; breath: number; hairFront?: number; hairBack?: number; gaze: number; fringe?: number
   /** the long hair's swing below the shoulders (SWAY), times hairBack: 0 is off (as before 0.6.0), 1 the default */
-  hairSway?: number }
+  hairSway?: number
+  /** long hair resting on the body (hairRestOf): the share of the head's motion that hair lying on the body below the neck
+   *  gives up to the body's. 0 is as before 0.6.0; unset, the default */
+  hairRest?: number }
 export const defaultTuning = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
 /** the deepest the bangs go when tuning.fringe pulls them out: the usual 0.15 bangs reach 2x; at 0.45 (3x) strands
  *  crossed the eyes on a turn. A layer drawn deeper keeps its own depth */
 export const FRINGE_MAX = 0.3
+/** Long hair lying on the shoulders and chest goes with the body, not the head. Moved with the head alone, on a large move of
+ *  the head and the torso together it slid tens of pixels over the clothes, and what it had covered showed between the strands
+ *  (light clothes in fragments through dark hair, a hard edge along a collar). Where the hair lies over the body (its coverage
+ *  field, as the long hair's swing reads it) it takes this share of the head's motion less, from the neck down; beside the body
+ *  and above the neck nothing changes. A model without tuning.hairRest gets the default; a still frame is the same either way */
+export const HAIR_REST_DEFAULT = 1
+export function hairRestOf(t: Partial<Tuning> | undefined): number {
+  const v = t?.hairRest
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(v, 1) : HAIR_REST_DEFAULT
+}
 /** what tuning.fringe at `k` does to a layer of depth `d`: a factor on its depth, 1 at k = 1 exactly (nothing else read), so a
  *  character nobody moved it on draws as before bit for bit. Per layer, not per vertex: the fall-off at the skull's edge stays */
 export function fringeScale(d: number, k: number | undefined): number {
@@ -243,6 +256,9 @@ interface GLLayer {
   wHead: Float32Array; wPhys1: Float32Array; wPhys2: Float32Array; dep: Float32Array; wFront: Float32Array
   /** how much of the long hair's swing (Puppet.sway) the vertex takes: 0 at the shoulders, 1 at the tips (hair layers only) */
   wSway: Float32Array
+  /** how much the vertex rests on the body (hair layers only): the body's coverage there, from the neck down, 0 in the bangs;
+   *  the head's weight is wHead x (1 - hairRest x wHold) */
+  wHold?: Float32Array
   wBrow: Float32Array; browSide: Int8Array; wJaw: Float32Array
   /** the most the brow field moves each vertex (model px; Infinity: no cap), from brow_lines' cap */
   browCap: Float32Array
@@ -627,8 +643,8 @@ export class Puppet {
   /** keyforms.json's interp 'hermite': per key, the key on the other side of 0 of the same angle (-1: none) */
   private kfPair: number[] | null = null
   kfOff = false
-  /** the keyforms the keys were measured from, kept to measure them again when turn, nod or fringe changes (retune), and
-   *  their fields decoded */
+  /** the keyforms the keys were measured from, kept to measure them again when turn, nod, fringe or hairRest changes
+   *  (retune), and their fields decoded */
   private kfFile: KeyformFile | undefined = undefined
   private kfBytes: Map<string, Uint8Array> | undefined = undefined
   /** each key's weight (Puppet.keys order) set by the caller instead of taken from the angle: a player switching
@@ -897,7 +913,8 @@ export class Puppet {
   private prepareKeyforms(K: KeyformFile) {
     // base64 to bytes, each field once (one field can serve every head layer). A plain loop: Uint8Array.from(text, mapper)
     // calls back per character, which took half of the refined Nana's load
-    // (kept with the keyforms: measuring again for a change of turn, nod or fringe, as a slider moves, decodes nothing again)
+    // (kept with the keyforms: measuring again for a change of turn, nod, fringe or hairRest, as a slider moves, decodes
+    // nothing again)
     const seen = this.kfBytes ??= new Map<string, Uint8Array>()
     const bytes = (b64: string) => {
       let out = seen.get(b64)
@@ -1023,6 +1040,7 @@ export class Puppet {
     const n = pos.length / 2
     const rest = new Float32Array(pos)
     const wHead = new Float32Array(n), wPhys1 = new Float32Array(n), wPhys2 = new Float32Array(n), wSway = new Float32Array(n)
+    const wHold = this.bodyCover && L.group !== 'head' && L.group !== 'body' ? new Float32Array(n) : undefined
     const dep = new Float32Array(n), wBrow = new Float32Array(n), browSide = new Int8Array(n).fill(-1), wFront = new Float32Array(n)
     const browCap = new Float32Array(n).fill(Infinity)
     const wJaw = new Float32Array(n)
@@ -1069,6 +1087,9 @@ export class Puppet {
         wPhys1[i] = f * tb + (1 - f) * lp1; wPhys2[i] = f * tb * tb + (1 - f) * lp2
         wFront[i] = f
         if (L.group === 'hair_inner') { wHead[i] *= 0.5; wPhys1[i] *= 0.35; wPhys2[i] *= 0.35 }
+        // resting on the body: one field of position for every hair layer, so the inner hair and the back hair under a strand
+        // give up as much of the head's motion as the strand does; from the neck down, none of it in the bangs (f)
+        if (wHold) wHold[i] = (1 - f) * fieldAt(this.bodyCover, x, y) * smooth(A.neck_y - 0.1 * h.ry, A.neck_y + 0.35 * h.ry, y)
         wSway[i] = hangsAt(this.hairHang, Math.round(x / cell), Math.round(y / cell)) ? swayWeight(y, swayTop, swayLen, f, fieldAt(this.bodyCover, x, y)) : 0
       }
       if (alt && bangs) {  // the front hair's own weights at this vertex: the same lattice point moves the same way
@@ -1180,7 +1201,7 @@ export class Puppet {
     return {
       def: L, tex, frames: frameTex, mask: maskTex, talk: talkTex, browTex,
       vao, pos: pb, uvs: ub, tris: ib, count: idx.length, rest, out: new Float32Array(rest.length), tri, tw: img.naturalWidth || img.width, th: img.naturalHeight || img.height,
-      wHead, wPhys1, wPhys2, wSway, dep, wBrow, browSide, browCap, wFront, wJaw, wNeck, wTwist, fol, folB, alt,
+      wHead, wPhys1, wPhys2, wSway, wHold, dep, wBrow, browSide, browCap, wFront, wJaw, wNeck, wTwist, fol, folB, alt,
       outB: folB ? new Float32Array(rest.length) : undefined, stencilRef: 0, soft: 0, maskCh: -1, skin, altSkin,
     }
   }
@@ -1801,6 +1822,7 @@ export class Puppet {
     }
     // tuning.fringe: the bangs' depth, and the brows over them that move as the bangs do (alt), scaled where read
     const fringeB = fringeScale(this.bangsDepth, this.tuning.fringe)
+    const holdK = hairRestOf(this.tuning)  // long hair resting on the body
     for (const L of this.layers) {
       this.fbParts = !!this.fb && L.def.group === 'body'
       // a layer not drawn this frame (an expression that is off, closed lashes on an open eye) is not moved either;
@@ -1858,7 +1880,8 @@ export class Puppet {
           const vx = x - d.rigid[0], vy = y - d.rigid[1]
           pt[0] = rgx + vx * rc - vy * rs; pt[1] = rgy + vx * rs + vy * rc
         } else {
-          place(x, y, L.wHead[i], fringeL === 1 ? L.dep[i] : L.dep[i] * fringeL, L.wPhys1[i], L.wPhys2[i], L.wFront[i])
+          place(x, y, L.wHold && holdK > 0 ? L.wHead[i] * (1 - holdK * L.wHold[i]) : L.wHead[i], fringeL === 1 ? L.dep[i] : L.dep[i] * fringeL,
+            L.wPhys1[i], L.wPhys2[i], L.wFront[i])
           if (swayX !== 0 && L.wSway[i] > 0) pt[0] += swayX * L.wSway[i]
         }
         if (L.skin) { this.skinOffset(L.skin, i, so); pt[0] += so[0]; pt[1] += so[1] }
@@ -1885,7 +1908,7 @@ export class Puppet {
             if (f && kw[k] !== 0) { dx += kw[k] * f[2 * i]; dy += kw[k] * f[2 * i + 1] }
           }
           if (dx !== 0 || dy !== 0) {
-            const a = roll * L.wHead[i], c = Math.cos(a), s = Math.sin(a)
+            const a = roll * (L.wHold && holdK > 0 ? L.wHead[i] * (1 - holdK * L.wHold[i]) : L.wHead[i]), c = Math.cos(a), s = Math.sin(a)
             const ox = dx * c - dy * s, oy = dx * s + dy * c
             X += ox; Y += oy
             if (L.outB) { L.outB[2 * i] += ox; L.outB[2 * i + 1] += oy }

@@ -86,7 +86,7 @@ giới hạn khi đọc file không đáng tin cậy, gói model và phiên bả
 được mô tả trong [FORMAT-v3.md](FORMAT-v3.md) và vẫn phát được.
 
 **Mới trong 0.6:** tóc dài phía dưới vai đung đưa sang hai bên khi đầu và thân chuyển động (`tuning.hair_sway` của mô hình
-quyết định biên độ, 0 là tắt). Các cài đặt cảm giác chuyển động của nhân vật (`tuning`: mức quay đầu, độ đung đưa của
+quyết định biên độ, 0 là tắt), còn tóc dài xõa trên người thì đi theo thân chứ không theo đầu (`tuning.hair_rest`). Các cài đặt cảm giác chuyển động của nhân vật (`tuning`: mức quay đầu, độ đung đưa của
 tóc, tần suất chớp mắt…) có thể đọc qua `player.tuning` và thay đổi ngay khi đang phát bằng `player.setTuning()`, phù hợp
 cho thanh trượt của trình chỉnh sửa; `load(source, { continueMotion: true })` giữ cho nhân vật tiếp tục chuyển động khi
 được tải lại sau mỗi lần chỉnh sửa. Tệp VRM xuất từ Blender giờ đã phát được. Mã tự chạy vòng lặp khung hình có thể lấy

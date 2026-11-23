@@ -210,6 +210,7 @@ player.tuning.turn                            // 1 (if the model says nothing)
 | `hairFront` | `hair_front` | the bangs' swing, in place of `hair` |
 | `hairBack` | `hair_back` | long hair's and the swinging pieces' swing, in place of `hair` |
 | `hairSway` | `hair_sway` | how far long hair swings sideways below the shoulders, times `hairBack`; 0 off |
+| `hairRest` | `hair_rest` | how much long hair lying on the body below the neck goes with the body, not the head, 0..1 (more counts as 1); 0 off, 1 when the model says nothing |
 | `breath` | `breath` | breathing |
 | `gaze` | `gaze` | the share of the iris's travel the eyes use, 0..1 (more counts as 1) |
 | `fringe` | `fringe` | how far the bangs stand off the face: their depth times this, 0 on the face, at most about twice |
@@ -221,8 +222,8 @@ A value is a number from 0 to 10, as in a model file (above 10 counts as 10); `u
 the model's own.
 A name that is no setting, or a value that is no number from 0 up, throws a `TypeError` and changes nothing. Each
 `load()` starts again from the new character's own settings. At 1 (or not set) a setting changes nothing: a model
-without `tuning` plays as it always has. Changing `turn`, `nod` or `fringe` on a model with keyforms measures its key
-poses again before the next frame, so it draws exactly as it would loaded with those settings.
+without `tuning` plays as it always has. Changing `turn`, `nod`, `fringe` or `hairRest` on a model with keyforms
+measures its key poses again before the next frame, so it draws exactly as it would loaded with those settings.
 
 ### Placement and the loop
 
@@ -521,8 +522,8 @@ p.update(1 / 60); p.render()                     // your loop: update(dt), then 
 
 What the high-level players add on top is theirs, not the renderer's. The idle motion, the drivers and the mark are not
 in `Puppet`, and neither is the first frame's warm-up: `puppet.prewarm` is off by default (Player turns it on; see the
-changelog for 0.6.0). The feel settings are `puppet.tuning`, read each frame; after changing `turn`, `nod` or `fringe` on a
-model with keyforms, call `puppet.retune()`.
+changelog for 0.6.0). The feel settings are `puppet.tuning`, read each frame; after changing `turn`, `nod`, `fringe` or
+`hairRest` on a model with keyforms, call `puppet.retune()`.
 
 For tools that ask what is drawn where (an editor's picking, QA), three methods read the last frame without changing it:
 
