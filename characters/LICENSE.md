@@ -2,7 +2,7 @@
 
 版本 1.1，2026 年 11 月 16 日
 
-除 Kujira（p01）、Kujira Q（p02）和 Pen（p03）外，随 VTuber Stage 和 LivLiv Player 提供的角色（每个角色文件夹里的模型、贴图和头像，下称「精选角色」）由 LivLiv 团队借助 AI 制作。这份许可不包括这三个角色，它们的来源和条款见 CREDITS.md。LivLiv 保留这份许可没有授予的权利。VTuber Stage 和 LivLiv Player 的代码另有许可，这份许可只管精选角色。
+除 Kujira（p01）、Kujira Q（p02）和 Pen（p03）外，随 VTuber Stage（原名 LivLiv Stage）和 LivLiv Player 提供的角色（每个角色文件夹里的模型、贴图和头像，下称「精选角色」）由 LivLiv 团队借助 AI 制作。这份许可不包括这三个角色，它们的来源和条款见 CREDITS.md。LivLiv 保留这份许可没有授予的权利。VTuber Stage 和 LivLiv Player 的代码另有许可，这份许可只管精选角色。
 
 ## 可以
 
@@ -40,7 +40,7 @@ Nana（d03、d03ft）是 LivLiv 的吉祥物。除了上面的规则，还要遵
 
 Version 1.1, November 16, 2026
 
-Except for Kujira (p01), Kujira Q (p02) and Pen (p03), the characters that come with VTuber Stage and LivLiv Player (the models, textures and avatars in each character's folder, the "Featured Characters") were made by the LivLiv team with AI. This license does not cover those three: see CREDITS.md for where they come from and their terms. LivLiv keeps the rights this license does not grant. The code of VTuber Stage and LivLiv Player has its own license; this license covers only the Featured Characters.
+Except for Kujira (p01), Kujira Q (p02) and Pen (p03), the characters that come with VTuber Stage (formerly LivLiv Stage) and LivLiv Player (the models, textures and avatars in each character's folder, the "Featured Characters") were made by the LivLiv team with AI. This license does not cover those three: see CREDITS.md for where they come from and their terms. LivLiv keeps the rights this license does not grant. The code of VTuber Stage and LivLiv Player has its own license; this license covers only the Featured Characters.
 
 ## You may
 
