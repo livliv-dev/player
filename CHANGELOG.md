@@ -5,8 +5,8 @@
 Long hair that swings and rests on the shoulders, feel settings an editor can change while the character plays, an
 advanced entry for code that runs the renderer itself, and VRM files from Blender that play. A page written for 0.5
 needs no change. What it will see change, all on purpose (below): long hair swings, and long hair lying on the body
-moves less with the head; a model whose file sets `tuning.blink`, `expr` or `mouth` plays them; and the idle motion
-turned back on eases in instead of jumping.
+moves less with the head; a model whose file sets `tuning.blink`, `expr` or `mouth` plays them; the idle motion
+turned back on eases in instead of jumping; and blinks no longer show a see-through iris halfway.
 
 ### New
 
@@ -33,6 +33,16 @@ turned back on eases in instead of jumping.
 
 ### Changed
 
+- **Blinks without a see-through iris.** Halfway through a blink the open eye used to fade out from eye-open 0.2 down
+  while the closed eye faded in under it: for a few frames of every blink the iris showed as a grey, see-through smear
+  (most on pale irises, and for as long as a face-tracked eye stays half shut). The open eye now stays whole until it is
+  squashed to a thin slit and goes in a short step (eye-open 0.06 to 0.03), and the idle motion holds each blink shut
+  for 35 ms: the close takes 75 ms and a frame often missed its bottom (a third of the blinks at 60 fps, two in three in
+  a 30 fps recording never showed the closed eye); now every one does. **Every character blinks this way at default
+  settings.** A frame with the eyes open 0.2 or more, or shut, draws exactly as in 0.5; between 0.08 and 0.05 the open
+  eye shows as a thin slit where it used to be a fading smear. `player.puppet.blinkHandover = false` blinks as before
+  ([API.md](API.md#blinks)). `BodyPlayer` (VRM, PNGTuber) is unchanged. In the runtime entry: `Puppet.blinkHandover`,
+  `blinkHold` on `LivelyIdle` and `IdleDriver` (0 unless set), `BLINK_HOLD`, `eyeFade`, `blinkOpen`, `blinkOver`.
 - **Long hair swings below the shoulders** ([#15](https://github.com/livliv-dev/player/issues/15)). Below the jaw, long
   hair used to follow the torso, so its tips moved less than the hair at the shoulders. A gentle pendulum, thrown by the
   head's and the torso's moves and settling by itself, now swings it sideways, more toward the tips (twin tails and

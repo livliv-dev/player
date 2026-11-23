@@ -225,6 +225,20 @@ A name that is no setting, or a value that is no number from 0 up, throws a `Typ
 without `tuning` plays as it always has. Changing `turn`, `nod`, `fringe` or `hairRest` on a model with keyforms
 measures its key poses again before the next frame, so it draws exactly as it would loaded with those settings.
 
+### Blinks
+
+The idle motion blinks every few seconds (`tuning.blink` sets how often). Halfway through a blink the open eye hands
+over to the closed one: it is drawn whole until it is squashed to a thin slit, then goes in a short step, and the idle
+motion holds each blink shut for 35 ms, so every blink shows the closed eye, at 60 fps and in a 30 fps recording. Eyes
+that face tracking or your own `params` half close get the same hand-over (the hold is the idle motion's).
+
+```js
+player.puppet.blinkHandover = false   // the blink of 0.5: the open eye fades from eye-open 0.2 down over the closed one
+```
+
+With it off, the open eye fades out while the closed one comes in under it, which showed the iris as a see-through
+grey smear for a few frames of every blink. Either way a frame with the eyes open 0.2 or more, or shut, is the same.
+
 ### Placement and the loop
 
 - `view`: `{ x, y, zoom, head, fit }`. `x`, `y` move the character by shares of the canvas (y up), `zoom` scales it about the
@@ -523,7 +537,10 @@ p.update(1 / 60); p.render()                     // your loop: update(dt), then 
 What the high-level players add on top is theirs, not the renderer's. The idle motion, the drivers and the mark are not
 in `Puppet`, and neither is the first frame's warm-up: `puppet.prewarm` is off by default (Player turns it on; see the
 changelog for 0.6.0). The feel settings are `puppet.tuning`, read each frame; after changing `turn`, `nod`, `fringe` or
-`hairRest` on a model with keyforms, call `puppet.retune()`.
+`hairRest` on a model with keyforms, call `puppet.retune()`. The blink hand-over is the renderer's
+(`puppet.blinkHandover`, on); the hold that goes with it is the idle motion's: `LivelyIdle` and `IdleDriver` have
+`blinkHold` (0, as before 0.6). Set it to `BLINK_HOLD` while the hand-over is on, as Player does, or a frame often misses
+the bottom of a blink and it never shows the closed eye. `eyeFade`, `blinkOpen` and `blinkOver` are the curves they use.
 
 For tools that ask what is drawn where (an editor's picking, QA), three methods read the last frame without changing it:
 

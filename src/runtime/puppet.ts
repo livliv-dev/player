@@ -21,9 +21,9 @@ import { LIMITS, coded, latticeOf, readModel, type Labels, type ModelFiles, type
 import { CROUCH_CAM, FB_ANKLE, FB_ANKLE_BAND, FB_CAM_SWAY, FB_GAIN, FB_HEM_C, FB_HEM_K, FB_HEM_LAG, FB_HEM_MAX, FB_HEM_WIND,
   FB_HIP_BACK, FB_HIP_C, FB_HIP_IDLE, FB_HIP_K, FB_HIP_REACH, FB_HIP_SLIDE, FB_HIP_TILT, FB_SHOULDER_ANSWER, FB_WAIST,
   fitBox, fullBody, type BodyAnchors, type Fit, type FullBody } from './fullbody'
-import { PARAM_RANGES, defaultParams, smooth, type Params } from './params'
+import { BLINK_HOLD, PARAM_RANGES, blinkOpen, blinkOver, defaultParams, eyeFade, smooth, type Params } from './params'
 
-export { PARAM_RANGES, defaultParams, smooth, type Params }
+export { BLINK_HOLD, PARAM_RANGES, blinkOpen, blinkOver, defaultParams, eyeFade, smooth, type Params }
 
 export interface LayerDef {
   id: string; name: string; texture: string
@@ -680,6 +680,9 @@ export class Puppet {
    *  diverge). Outward, up and down as before; false: the build's travel both ways (for comparisons) */
   irisNasal = true
   irisNasalNarrow = 0.7
+  /** the blink hand-over (eyeFade): the open eye stays whole until it is a thin slit, so no see-through iris shows
+   *  mid-blink. A player holds each blink shut for BLINK_HOLD with it on. false: the blink as before */
+  blinkHandover = true
   /** per eye side (L / R): its iris's room toward the nose, measured at load */
   private nasal: Partial<Record<string, Nasal>> = {}
   /** the model's swinging pieces (rig.chains), simulated in update() */
@@ -2161,7 +2164,7 @@ export class Puppet {
       }
       if (role.startsWith('eye_')) {
         const open = role === 'eye_L' ? P.eyeLOpen : P.eyeROpen
-        this.drawLayer(L, L.tex, smooth(0.02, 0.2, open)) // squash, don't fade: fading ghosts the lashes
+        this.drawLayer(L, L.tex, eyeFade(open, this.blinkHandover)) // squash, don't fade: fading ghosts the lashes
         L.stencilRef = 0
         if (L.mask && L.maskCh < 0) {  // its iris at rest (or softIris off): the stencil, as built
           // write the (squashed) sclera into the stencil so the iris stays inside the whites
@@ -2191,13 +2194,13 @@ export class Puppet {
           gl.uniform1i(this.uMode, 2)
           gl.uniform4f(this.uMaskSel, +(c === 0), +(c === 1), +(c === 2), +(c === 3))
           gl.uniform1f(this.uSoft, L.soft)
-          this.drawLayer(L, L.tex, smooth(0.02, 0.2, open))
+          this.drawLayer(L, L.tex, eyeFade(open, this.blinkHandover))
           gl.uniform1i(this.uMode, 0)
         } else if (parent && parent.stencilRef) {
           gl.enable(gl.STENCIL_TEST)
           gl.stencilFunc(gl.EQUAL, parent.stencilRef, 0xff)
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP)
-          this.drawLayer(L, L.tex, smooth(0.02, 0.2, open))
+          this.drawLayer(L, L.tex, eyeFade(open, this.blinkHandover))
           gl.disable(gl.STENCIL_TEST)
         }
         continue
@@ -2691,17 +2694,17 @@ function alphaGrid(imgs: HTMLImageElement[], cols: number, rows: number, ox = 0,
 export class IdleDriver {
   nextBlink = 2; blinkT = -1; look = { x: 0, y: 0 }
   blinkRate = 1
+  /** how long each blink holds the eyes shut (s): BLINK_HOLD goes with Puppet.blinkHandover; 0: as before */
+  blinkHold = 0
   nextSaccade = 1; gaze = { x: 0, y: 0 }
   apply(P: Params, t: number, dt: number) {
     P.breath = 0.5 + 0.5 * Math.sin(t * 2.1)
     if (this.blinkT < 0 && t > this.nextBlink) this.blinkT = 0
     if (this.blinkT >= 0) {
-      // fast close (75 ms), slower open (120 ms): reads as a natural blink
+      // fast close (75 ms), shut for blinkHold, slower open (120 ms): reads as a natural blink
       this.blinkT += dt
-      const b = this.blinkT / 0.075
-      const open = b < 1 ? 1 - b : b < 2.6 ? (b - 1) / 1.6 : 1
-      P.eyeLOpen = P.eyeROpen = Math.max(0, Math.min(1, open))
-      if (b >= 2.6) { this.blinkT = -1; this.nextBlink = t + (1.8 + Math.random() * 3.8) / Math.max(0.2, this.blinkRate) }
+      P.eyeLOpen = P.eyeROpen = blinkOpen(this.blinkT, this.blinkHold)
+      if (blinkOver(this.blinkT, this.blinkHold)) { this.blinkT = -1; this.nextBlink = t + (1.8 + Math.random() * 3.8) / Math.max(0.2, this.blinkRate) }
     }
     // eyes lead the head: quick saccades toward the pointer, head follows slower
     if (t > this.nextSaccade) {
