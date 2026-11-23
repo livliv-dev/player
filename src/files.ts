@@ -7,11 +7,13 @@ import type { ModelSource } from './index'
 const fail = (message: string) => new LivLivError('too-large', `LivLiv: ${message}`)
 /** a file larger than its own limit (`limit`), or all of them larger than a package may be */
 const tooLarge = (file?: string, limit = 0) => fail(limit ? `${file} is larger than ${limit} bytes` : `the model's files are larger than ${ZIP_LIMITS.bytes} bytes in all`)
-/** a file's path in the package: what load() would find it by. A name that leaves the package is refused, as unzip
- *  refuses it (the same rule, leavesPackage); any other name is the package's, `#`, `?` and `:` included */
+/** a file's path in the package, for tools that write the files out: refused when it would leave the package, as unzip
+ *  refuses it (the same rule, leavesPackage), and, more strictly than load(), when it holds a control character (NUL
+ *  among them) or `:` (on Windows `x.webp:y` names a stream inside x.webp). `#` and `?` are names like any other */
 const pathOf = (path: string) => {
   const value = path.replace(/\\/g, '/').replace(/^(\.\/)+/, '')
   if (!value || leavesPackage(value)) throw new LivLivError('invalid', `LivLiv: the model file path ${JSON.stringify(path.slice(0, 200))} is outside its package`)
+  if (/[\u0000-\u001f\u007f:]/.test(value)) throw new LivLivError('invalid', `LivLiv: the model file path ${JSON.stringify(path.slice(0, 200))} has a character a file name cannot safely have (a control character or ":")`)
   return value
 }
 
@@ -91,12 +93,13 @@ export async function modelFiles(source: ModelSource, options: Pick<LoadOptions,
     return files
   }
   let files = new Map<string, Blob>()
-  if (source instanceof Blob) return unzip(source, signal)
+  const checked = (m: Map<string, Blob>) => { for (const k of m.keys()) pathOf(k); return m }
+  if (source instanceof Blob) return checked(await unzip(source, signal))
   if (source instanceof Map) for (const [name, blob] of source) files.set(pathOf(name), blob)
   else if (Symbol.iterator in source) for (const file of source as Iterable<File>) files.set(pathOf(file.webkitRelativePath || file.name), file)
   else for (const [name, blob] of Object.entries(source)) files.set(pathOf(name), blob)
   if (![...files.keys()].some((name) => name === 'model.json' || name.endsWith('/model.json'))) {
-    for (const blob of files.values()) if (await isZip(blob)) { files = await unzip(blob, signal); break }
+    for (const blob of files.values()) if (await isZip(blob)) { files = checked(await unzip(blob, signal)); break }
   }
   if (files.size > ZIP_LIMITS.entries) throw fail(`the model has ${files.size} files, more than ${ZIP_LIMITS.entries}`)
   for (const blob of files.values()) { total += blob.size; if (total > ZIP_LIMITS.bytes) throw tooLarge() }
