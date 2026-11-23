@@ -13,8 +13,8 @@ turned back on eases in instead of jumping.
 - **Feel settings, live.** `player.tuning` is the character's feel settings as it plays (its model's `tuning`; a frozen
   copy), and `player.setTuning(changes)` changes some of them without loading the character again: `undefined` puts
   one back to the model's own, each load starts from the new character's own. On `Player` and `BodyPlayer`. Changing
-  `turn`, `nod` or `fringe` on a model with keyforms measures its key poses again, so it draws exactly as it would
-  loaded with those settings. See [API.md](API.md#feel-settings-tuning-and-settuning).
+  `turn`, `nod`, `fringe` or `hairRest` on a model with keyforms measures its key poses again, so it draws exactly as
+  it would loaded with those settings. See [API.md](API.md#feel-settings-tuning-and-settuning).
 - **`blink`, `expr` and `mouth` from the model's `tuning` count**, as on livliv.ai: how often the idle motion blinks,
   how readily face tracking reads a smile, how far face tracking and live lip sync open the mouth (lip sync's own
   `gain` multiplies with it). A `Host` may carry `tuning` (optional): drivers read it there. **A model whose file sets

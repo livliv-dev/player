@@ -11,11 +11,14 @@ describe('hair resting on the body', () => {
     assert.equal(hairRestOf({}), 1)
   })
 
-  it('reads a number from 0 up, at most 1', () => {
+  // the schema and setTuning take 0..10, as for every feel setting; like gaze, this one stops at 1 (all of the head's
+  // motion that the body can take over), so more counts as 1
+  it('reads a number from 0 up, at most 1: more counts as 1', () => {
     assert.equal(hairRestOf({ hairRest: 0 }), 0)
     assert.equal(hairRestOf({ hairRest: 0.7 }), 0.7)
     assert.equal(hairRestOf({ hairRest: 1 }), 1)
     assert.equal(hairRestOf({ hairRest: 3 }), 1)
+    assert.equal(hairRestOf({ hairRest: 10 }), 1)
   })
 
   it('takes anything else as the default', () => {

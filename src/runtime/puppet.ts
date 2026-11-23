@@ -643,8 +643,8 @@ export class Puppet {
   /** keyforms.json's interp 'hermite': per key, the key on the other side of 0 of the same angle (-1: none) */
   private kfPair: number[] | null = null
   kfOff = false
-  /** the keyforms the keys were measured from, kept to measure them again when turn, nod or fringe changes (retune), and
-   *  their fields decoded */
+  /** the keyforms the keys were measured from, kept to measure them again when turn, nod, fringe or hairRest changes
+   *  (retune), and their fields decoded */
   private kfFile: KeyformFile | undefined = undefined
   private kfBytes: Map<string, Uint8Array> | undefined = undefined
   /** each key's weight (Puppet.keys order) set by the caller instead of taken from the angle: a player switching
@@ -913,7 +913,8 @@ export class Puppet {
   private prepareKeyforms(K: KeyformFile) {
     // base64 to bytes, each field once (one field can serve every head layer). A plain loop: Uint8Array.from(text, mapper)
     // calls back per character, which took half of the refined Nana's load
-    // (kept with the keyforms: measuring again for a change of turn, nod or fringe, as a slider moves, decodes nothing again)
+    // (kept with the keyforms: measuring again for a change of turn, nod, fringe or hairRest, as a slider moves, decodes
+    // nothing again)
     const seen = this.kfBytes ??= new Map<string, Uint8Array>()
     const bytes = (b64: string) => {
       let out = seen.get(b64)
