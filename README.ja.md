@@ -85,7 +85,7 @@ API の全体は [API.md](API.md)（英語）にあります：オプション�
 
 **0.7 の新機能（未リリース）：** `@livliv-dev/player/mavatar` で、Mesh Avatar Studio のアバター（`.mavatar`）を `BodyPlayer` で再生できます。描画はこの形式のランタイム [mesh-avatar](https://www.npmjs.com/package/mesh-avatar)（MIT）が行うので、プレイヤーと一緒にインストールしてください。プレイヤーの待機モーション、リップシンク、フェイストラッキング、表情で動きます。0.6 向けに書いたページは変更不要です。詳しくは API.md の [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody) をご覧ください。
 
-**0.6 の新機能：** 頭や体が動くと、肩より下の長い髪が左右に揺れます（モデルの `tuning.hair_sway` で揺れ幅を調整、0 で無効）。体にかかった長い髪は、頭ではなく体について動きます（`tuning.hair_rest`）。キャラクターの動きの調整（`tuning`：首の回り具合、髪の揺れ、まばたきの頻度など）は `player.tuning` で読み取り、`player.setTuning()` で再生中にそのまま変更できるので、エディターのスライダーに使えます。`load(source, { continueMotion: true })` を使えば、編集のたびに読み込み直しても動きが途切れません。Blender から書き出した VRM も再生できるようになりました。独自のフレームループを回すコードは、上級者向けの入口 `@livliv-dev/player/runtime` からレンダラーそのものを使えます。0.5 向けに書いたページは変更不要です。詳しくは API.md の [Feel settings](API.md#feel-settings-tuning-and-settuning) をご覧ください。
+**0.6 の新機能：** 頭や体が動くと、肩より下の長い髪が左右に揺れます（モデルの `tuning.hair_sway` で揺れ幅を調整、0 で無効）。体にかかった長い髪は、頭ではなく体について動きます（`tuning.hair_rest`）。まばたきの途中で虹彩が半透明に透けて見えることもなくなりました。キャラクターの動きの調整（`tuning`：首の回り具合、髪の揺れ、まばたきの頻度など）は `player.tuning` で読み取り、`player.setTuning()` で再生中にそのまま変更できるので、エディターのスライダーに使えます。`load(source, { continueMotion: true })` を使えば、編集のたびに読み込み直しても動きが途切れません。Blender から書き出した VRM も再生できるようになりました。独自のフレームループを回すコードは、上級者向けの入口 `@livliv-dev/player/runtime` からレンダラーそのものを使えます。0.5 向けに書いたページは変更不要です。詳しくは API.md の [Feel settings](API.md#feel-settings-tuning-and-settuning) をご覧ください。
 
 > npm パッケージに入っているのはプレイヤーだけです。厳選キャラクターはこのリポジトリの [`characters/`](characters/) にあります。使うキャラクターをライセンスと一緒にページのそばにコピーしてください。
 

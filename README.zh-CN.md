@@ -87,7 +87,7 @@ await mesh.load('/avatars/me.mavatar')
 
 **0.7 新增（尚未发布）：** `@livliv-dev/player/mavatar` 让 Mesh Avatar Studio 角色（`.mavatar`）在 `BodyPlayer` 上播放，由它自己的运行库 [mesh-avatar](https://www.npmjs.com/package/mesh-avatar)（MIT）绘制，需要和播放器一起安装。播放器的待机动作、口型、面捕和表情都能驱动它。为 0.6 写的页面无需改动。详见 API.md 的 [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody)。
 
-**0.6 新增：** 头和身体动起来时，肩膀以下的长发会左右摆动（模型的 `tuning.hair_sway` 控制幅度，设为 0 即关闭），搭在身体上的长发跟着身体走，不再整片跟着头（`tuning.hair_rest`）。角色的手感设置（`tuning`：转头幅度、头发晃动、眨眼频率等）可以用 `player.tuning` 读取，用 `player.setTuning()` 在播放中直接修改，适合编辑器的滑块；`load(source, { continueMotion: true })` 让编辑后重新加载的角色接着原来的动作继续动。Blender 导出的 VRM 文件也能播放了。自己跑帧循环的代码可以从高级入口 `@livliv-dev/player/runtime` 直接拿到渲染器。为 0.5 写的页面无需改动。详见 API.md 的 [Feel settings](API.md#feel-settings-tuning-and-settuning)。
+**0.6 新增：** 头和身体动起来时，肩膀以下的长发会左右摆动（模型的 `tuning.hair_sway` 控制幅度，设为 0 即关闭），搭在身体上的长发跟着身体走，不再整片跟着头（`tuning.hair_rest`）；眨眼到一半时也不再露出半透明的眼珠。角色的手感设置（`tuning`：转头幅度、头发晃动、眨眼频率等）可以用 `player.tuning` 读取，用 `player.setTuning()` 在播放中直接修改，适合编辑器的滑块；`load(source, { continueMotion: true })` 让编辑后重新加载的角色接着原来的动作继续动。Blender 导出的 VRM 文件也能播放了。自己跑帧循环的代码可以从高级入口 `@livliv-dev/player/runtime` 直接拿到渲染器。为 0.5 写的页面无需改动。详见 API.md 的 [Feel settings](API.md#feel-settings-tuning-and-settuning)。
 
 > npm 包里只有播放器。精选角色在这个仓库的 [`characters/`](characters/) 里，把要用的角色连同许可一起复制到你的页面旁边。
 

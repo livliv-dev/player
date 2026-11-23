@@ -93,12 +93,15 @@ giới hạn khi đọc file không đáng tin cậy, gói model và phiên bả
 (MIT), mà bạn cài cùng với player. Chuyển động chờ, khẩu hình, theo dõi khuôn mặt và biểu cảm của player đều điều khiển
 được nó. Trang viết cho 0.6 không cần sửa gì. Xem [Characters that aren't LivLiv models](API.md#characters-that-arent-livliv-models-livliv-devplayerbody) trong API.md.
 
-**Mới trong 0.6:** tóc dài phía dưới vai đung đưa sang hai bên khi đầu và thân chuyển động (`tuning.hair_sway` của mô hình
-quyết định biên độ, 0 là tắt), còn tóc dài xõa trên người thì đi theo thân chứ không theo đầu (`tuning.hair_rest`). Các cài đặt cảm giác chuyển động của nhân vật (`tuning`: mức quay đầu, độ đung đưa của
-tóc, tần suất chớp mắt…) có thể đọc qua `player.tuning` và thay đổi ngay khi đang phát bằng `player.setTuning()`, phù hợp
-cho thanh trượt của trình chỉnh sửa; `load(source, { continueMotion: true })` giữ cho nhân vật tiếp tục chuyển động khi
-được tải lại sau mỗi lần chỉnh sửa. Tệp VRM xuất từ Blender giờ đã phát được. Mã tự chạy vòng lặp khung hình có thể lấy
-trực tiếp trình kết xuất từ lối vào nâng cao `@livliv-dev/player/runtime`. Trang viết cho 0.5 không cần sửa gì. Xem [Feel settings](API.md#feel-settings-tuning-and-settuning) trong API.md.
+**Mới trong 0.6:** tóc dài phía dưới vai đung đưa sang hai bên khi đầu và thân chuyển động (`tuning.hair_sway` của mô
+hình quyết định biên độ, 0 là tắt), còn tóc dài xõa trên người thì đi theo thân chứ không theo đầu
+(`tuning.hair_rest`); khi chớp mắt, mống mắt cũng không còn hiện mờ trong suốt ở giữa chừng. Các cài đặt cảm giác
+chuyển động của nhân vật (`tuning`: mức quay đầu, độ đung đưa của tóc, tần suất chớp mắt…) có thể đọc qua
+`player.tuning` và thay đổi ngay khi đang phát bằng `player.setTuning()`, phù hợp cho thanh trượt của trình chỉnh sửa;
+`load(source, { continueMotion: true })` giữ cho nhân vật tiếp tục chuyển động khi được tải lại sau mỗi lần chỉnh sửa.
+Tệp VRM xuất từ Blender giờ đã phát được. Mã tự chạy vòng lặp khung hình có thể lấy trực tiếp trình kết xuất từ lối
+vào nâng cao `@livliv-dev/player/runtime`. Trang viết cho 0.5 không cần sửa gì. Xem [Feel
+settings](API.md#feel-settings-tuning-and-settuning) trong API.md.
 
 > Gói npm chỉ có trình phát. Các nhân vật nổi bật nằm trong [`characters/`](characters/) của repository này: hãy sao chép
 > những nhân vật bạn dùng, kèm giấy phép, vào cạnh trang của bạn.
