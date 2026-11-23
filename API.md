@@ -522,6 +522,11 @@ await mesh.load('/avatars/me.mavatar')       // a URL, a File, or its unpacked f
   exactly the size the player draws (a `renderPose` size, a canvas in no page), and the picture is copied into the
   player's canvas: so the player's canvas draws in 2D, as a PNGTuber's does, and `context()` is the WebGL2 context of the
   avatar's own canvas, one per character: `contextLost`, `onContextLost` and `dispose({ release })` work as for a VRM.
+  How many play smoothly: mesh-avatar moves each avatar's mesh on the main thread, about 5 ms a frame for one made in
+  Mesh Avatar Studio (Apple M4). Three run at 60 fps there, with little room left; more, or a slower machine, drop
+  frames. A page that offers many should say so.
+  `checkMavatar(file)` checks a `.mavatar` (or its unpacked files) as `load()` does, before anything is decoded, and
+  resolves with its name: for a page that takes files from people and would say no before it places a character.
   An avatar's `avatar.json` gives a name, an author and a licence, a free text: `load()` gives them in `model.meta`
   (`MavatarTerms`): `author`, `license` (`id` when the text starts with one, such as an SPDX id or a `LicenseRef-`, and
   `url`, the first in it), `text` (the licence as written) and `raw`. The player does not enforce them; a page playing
@@ -606,9 +611,15 @@ A VRM is looked through before three.js's glTF loader parses it (`VRM_LIMITS` in
 nothing outside itself (a file naming an outside URL is refused, so it cannot make the page fetch anything), 32 MB of
 JSON, 16 777 216 vertices, pictures of 8192 px a side and 536 870 912 pixels in all, read from their headers before they are
 decoded. A `.mavatar` is read by mesh-avatar, which takes stored ZIP entries only (no compression, no encryption, no
-paths outside the archive), 200 entries and 64 MB each at most, and checks its rig and files before anything is drawn;
-before that the player measures every picture in it from its header: 8192 px a side and 67 108 864 pixels in all at
-most (`MAVATAR_LIMITS` in `@livliv-dev/player/mavatar`), all of a body's files 256 MB (`BODY_LIMIT`). Security reports:
+paths outside the archive), 200 entries and 64 MB each at most, and checks its rig and files. Before any of that is
+decoded or built, the player holds it to `MAVATAR_LIMITS` (`@livliv-dev/player/mavatar`), since mesh-avatar builds its
+meshes from the rig's numbers, not from the pictures: every picture measured from its header (8192 px a side,
+67 108 864 pixels in all); each JSON file 1 MB; the rig's picture size the base picture's own; mesh cells of 2 px at
+least; the meshes' vertices, counted from the rig and the layers as mesh-avatar lays its grids, 262 144 in all (an
+avatar made in Mesh Avatar Studio has some 20 000); any list in the rig 512 entries; 64 hair strands, 32 accessories,
+16 garments of 64 columns and rows at most. All of a body's files are 256 MB at most (`BODY_LIMIT`). mesh-avatar keeps
+every picture it has loaded for the life of the page; the player gives the same avatar loaded again the same package,
+so playing it again does not add to that, while each different avatar does. Security reports:
 [SECURITY.md](SECURITY.md).
 
 ## Format version

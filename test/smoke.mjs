@@ -669,6 +669,7 @@ try {
       sides: m.lean.rollRight.top > m.lean.rest.top + 0.01 && m.lean.bodyRoll.top > m.lean.rest.top + 0.01 && m.lean.yawRight.top > m.lean.rest.top
         && P.leftEyeShut.box?.[2] < 0.5,
       eyes: P.blink.face > 0.02 && P.gazeRight.face > 0.005,
+      gaze: !!m.gaze.rest && m.gaze.right[0] > m.gaze.rest[0] && m.gaze.left[0] < m.gaze.rest[0] && m.gaze.up[1] < m.gaze.rest[1] && m.gaze.down[1] > m.gaze.rest[1],
       mouth: ['mouthA', 'mouthI', 'mouthO'].every((k) => P[k].box?.[1] > m.head.y),
       expressions: ids.filter((id) => id !== 'smile').every((id) => P[id].face > 0.02) && P.smile.share > 0.001,
       move: m.lean.right.top > m.lean.rest.top + 0.1 && P.small.covered < m.covered / 3 && P.hop.share > 0.1,
@@ -676,6 +677,8 @@ try {
     }
     const wrong = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k)
     line(!wrong.length, wrong.length ? `the poses: ${wrong.join(', ')}: ${JSON.stringify(m)}` : `the poses (${Object.keys(P).length}): turns, rolls, eyes, mouth shapes, ${ids.length} expressions, the move, time`)
+    const shared = await p.evaluate((u) => window.runMavatarShared(u), fixture)
+    line(shared.together && shared.after && shared.other, `the same avatar loaded again plays from the same package: ${JSON.stringify(shared)}`)
     const no = await p.evaluate(([u, b]) => window.runMavatarRefusals(u, b), [fixture, '/__bomb.png'])
     line(no.garbage === 'not-a-model' && no.bomb === 'too-large' && no.badRig === 'invalid' && no.missing === 'missing-file' && no.none === 'missing-file'
       && no.webglCanvas === 'canvas-in-use' && no.after === 'not-a-model' && no.kept, `refused, and the avatar before kept: ${JSON.stringify(no)}`)

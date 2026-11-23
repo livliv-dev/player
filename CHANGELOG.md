@@ -19,6 +19,11 @@ exactly as before.
   a canvas in no page) and keeps the Player's move (actions, the view). The player's canvas draws in 2D, as a
   PNGTuber's does; the WebGL context is the avatar's own canvas's, so `onContextLost` and `dispose({ release })` work
   as for a VRM. See [API.md](API.md#characters-that-arent-livliv-models-livliv-devplayerbody).
+- **`checkMavatar(file)`** and **`MAVATAR_LIMITS`**: a `.mavatar` is held to limits before anything in it is decoded
+  or built (its pictures from their headers, its rig's cells, lists and the vertices its meshes would have, the rig's
+  picture size the base picture's own), so a file from anyone cannot make mesh-avatar freeze the page or run it out of
+  memory. `checkMavatar` runs the same check for a page that takes files from people. See
+  [API.md](API.md#untrusted-files).
 - `example/mavatar.html`: open a `.mavatar`; without one, Nana as a `.mavatar` (made by LivLiv from the featured
   character for the tests, under the featured characters' licence).
 

@@ -13,12 +13,12 @@ import type { AvatarManifest, AvatarPackage, MeshAvatar } from 'mesh-avatar'
 import type { Body, BodyExpression, BodyMeta, Pose } from './body'
 import { LivLivError } from './errors'
 import { MESH_EXPRESSIONS, meshParams, type MouthSettings } from './meshpose'
+import { entriesOf, giveBack, inspect, packageFor, refused, runtime } from './mavatarfile'
+export { MAVATAR_LIMITS } from './mavatarfile'
 
-/** what a .mavatar may hold before its pictures are decoded: a picture's side and the pictures' pixels in all */
-export const MAVATAR_LIMITS = { side: 8192, pixels: 64 * 2 ** 20 }
-
-/** the WebGL attributes mesh-avatar asks for: asking first with the same ones gives it this context */
-const GL: WebGLContextAttributes = { premultipliedAlpha: true, antialias: true, alpha: true, preserveDrawingBuffer: true }
+/** the WebGL context mesh-avatar draws with, made here first: it asks for the same but a kept drawing buffer, which this
+ *  body does not need (each frame is copied out in the task that drew it) */
+const GL: WebGLContextAttributes = { premultipliedAlpha: true, antialias: true, alpha: true, preserveDrawingBuffer: false }
 
 /** who made the avatar and its terms, as its avatar.json says them. `text` is its licence as written (a free text in
  *  this format): `license.id` and `license.url` are what can be read from it */
@@ -36,6 +36,8 @@ export interface MavatarBodyOptions {
 interface Shown {
   avatar: MeshAvatar
   pkg: AvatarPackage
+  /** the shared package's key (mavatarfile.ts), null when it is this avatar's own */
+  key: string | null
   canvas: HTMLCanvasElement
   gl: WebGL2RenderingContext
   /** the pixel size mesh-avatar is told the canvas has */
@@ -72,33 +74,34 @@ export class MavatarBody implements Body {
   context() { return this.shown?.gl ?? null }
 
   async load(files: Map<string, Blob>) {
-    const MA = await import('mesh-avatar').catch((e) => {
-      throw new LivLivError('unreachable', `LivLiv: could not load mesh-avatar, which a .mavatar needs: is it installed, and can this page reach it? (${(e as Error).message})`)
-    })
-    const { bytes, file } = await archiveOf(files, MA)
-    let pkg: AvatarPackage
-    try { pkg = await MA.openAvatar(bytes) } catch (e) { throw refused(file, e) }
+    // its files unpacked once, measured and counted against MAVATAR_LIMITS before anything is decoded or built
+    const MA = await runtime()
+    const { entries, file } = await entriesOf(files, MA)
+    const { manifest, rig } = inspect(entries, file, MA)
+    const { pkg, key } = await packageFor(entries, manifest, rig)
     // the new avatar on a canvas of its own, apart from the one shown (a failed load leaves that on the canvas): it takes
-    // over at the end
+    // over at the end. Two contexts for that moment, the old one given up right after
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl2', GL)
-    if (!gl) { pkg.release(); throw new LivLivError('no-webgl', 'LivLiv: a .mavatar needs WebGL2, and this browser gives none') }
+    if (!gl) { giveBack(pkg, key); throw new LivLivError('no-webgl', 'LivLiv: a .mavatar needs WebGL2, and this browser gives none') }
     const size = { w: 2, h: 2 }
+    const lost = (e?: unknown) => new LivLivError('context-lost', 'LivLiv: the WebGL context was lost while the avatar loaded', { cause: e })
     let avatar: MeshAvatar
     try {
       avatar = await MA.loadMeshAvatar(sized(canvas, size), pkg, { manual: true })
     } catch (e) {
-      pkg.release()
+      giveBack(pkg, key)
+      const gone = gl.isContextLost()
       gl.getExtension('WEBGL_lose_context')?.loseContext()
-      if (gl.isContextLost()) throw new LivLivError('context-lost', 'LivLiv: the WebGL context was lost while the avatar loaded', { cause: e })
-      throw refused(file, e)
+      throw gone ? lost(e) : refused(file, e)
     }
+    if (gl.isContextLost()) { avatar.destroy(); giveBack(pkg, key); throw lost() }
     avatar.setAutoIdle(false)
     avatar.setAutoMotion(false)
     avatar.setSwayGain(this.sway)
-    const rig = pkg.rig, m = pkg.manifest
+    const m = manifest
     const shown: Shown = {
-      avatar, pkg, canvas, gl, size, image: { w: rig.image.width, h: rig.image.height },
+      avatar, pkg, key, canvas, gl, size, image: { w: rig.image.width, h: rig.image.height },
       pad: { top: num(rig.view.padTop), side: num(rig.view.padSide) },
       head: { cx: rig.head.cx, cy: rig.head.cy, rx: rig.head.rx, ry: rig.head.ry, pivotX: rig.head.pivotX, pivotY: rig.head.pivotY, maxRoll: num(rig.head.maxRoll, 0.15) },
       chest: rig.body.chest ? { cx: rig.body.chest.cx, cy: rig.body.chest.cy, rx: rig.body.chest.rx } : null,
@@ -126,9 +129,10 @@ export class MavatarBody implements Body {
     if (mood !== s.mood) { s.avatar.setExpression(mood as Parameters<MeshAvatar['setExpression']>[0], { parameters: false }); s.mood = mood }
     if (this.sway !== s.sway && Number.isFinite(this.sway)) { s.avatar.setSwayGain(Math.max(0, this.sway)); s.sway = this.sway }
     s.size.w = w; s.size.h = h
-    // one step at most a 60th of a second (its springs and hair), the steps adding up to dt; 0 draws without time
-    const t = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 1) : 0, steps = Math.max(1, Math.ceil(t * 60 - 1e-6))
-    s.avatar.advance(t, t ? steps / t : 60)
+    // one step of dt (at most a tenth of a second: a frame after a long pause), mesh-avatar's hair sub-stepping by itself;
+    // 0 draws without time
+    const t = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 0.1) : 0
+    s.avatar.advance(t, t ? 1 / t : 60)
     // its picture, scaled about the middle of the bottom edge and moved as the player's move says (y up)
     const k = move.s, x = (w - w * k) / 2 + move.x * w * 0.5, y = h - h * k - move.y * h * 0.5
     g.clearRect(0, 0, w, h)
@@ -158,7 +162,7 @@ export class MavatarBody implements Body {
     this.shown = null
     if (!s) return
     s.avatar.destroy()
-    s.pkg.release()
+    giveBack(s.pkg, s.key)
     s.gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
 
@@ -216,71 +220,6 @@ function sized(canvas: HTMLCanvasElement, size: { w: number; h: number }): HTMLC
   })
 }
 
-type Runtime = typeof import('mesh-avatar')
-
-/** the avatar as one .mavatar archive: the file given, or its unpacked files put together again (by name: rig.json,
- *  avatar.json, the built pictures, sprites.json and overlays.json with the files they list). Its pictures are measured
- *  from their headers before anything decodes them */
-async function archiveOf(files: Map<string, Blob>, MA: Runtime): Promise<{ bytes: Uint8Array; file: string }> {
-  const packed = [...files].find(([n]) => /\.mavatar$/i.test(n)) ?? [...files].find(([n]) => /\.zip$/i.test(n))
-  let entries: Record<string, Uint8Array>, file: string, bytes: Uint8Array | null = null
-  if (packed) {
-    file = packed[0]
-    bytes = new Uint8Array(await packed[1].arrayBuffer())
-    try { entries = MA.unpackAvatar(bytes) } catch (e) { throw refused(file, e, 'not-a-model') }
-  } else {
-    file = 'rig.json'
-    if (!files.has('rig.json')) throw new LivLivError('missing-file', 'LivLiv: no .mavatar file among the files, and no rig.json of an unpacked one')
-    const read = async (n: string) => new Uint8Array(await files.get(n)!.arrayBuffer())
-    const json = async (n: string) => { try { return JSON.parse(new TextDecoder().decode(await read(n))) } catch { throw new LivLivError('invalid', `LivLiv: ${n} is not JSON`) } }
-    entries = {}
-    const put = async (path: string, n = path.split('/').pop()!, need = true) => {
-      if (files.has(n)) entries[path] = await read(n)
-      else if (need) throw new LivLivError('missing-file', `LivLiv: ${n} is missing (the avatar names it)`)
-    }
-    await put('rig.json'); await put('avatar.json', 'avatar.json', false)
-    if (!files.has('layers.json')) throw new LivLivError('missing-file', 'LivLiv: layers.json is missing (an unpacked avatar has it in built/)')
-    const layers = await json('layers.json'), rig = await json('rig.json')
-    await put('built/layers.json')
-    for (const n of ['base', 'hairmask', ...(rig?.cloth?.length ? ['base_cloth'] : []), ...Object.keys(layers?.layers ?? {})]) await put(`built/${n}.png`)
-    if (files.has('sprites.json')) {
-      await put('built/sprites/sprites.json')
-      for (const n of Object.keys((await json('sprites.json'))?.layers ?? {})) await put(`built/sprites/${n}.png`)
-    }
-    if (files.has('overlays.json')) {
-      await put('built/overlays/overlays.json')
-      const list = (await json('overlays.json'))?.overlays
-      for (const o of Array.isArray(list) ? list : []) if (typeof o?.file === 'string') await put(`built/overlays/${o.file}`, o.file.split('/').pop())
-    }
-  }
-  let pixels = 0
-  for (const [path, data] of Object.entries(entries)) {
-    if (!/\.(png|jpe?g|webp)$/i.test(path)) continue
-    const size = pictureSize(data)
-    if (!size) throw new LivLivError('invalid', `LivLiv: ${path} in ${file} is not a picture this player can measure (PNG, JPEG or WebP)`)
-    if (size[0] > MAVATAR_LIMITS.side || size[1] > MAVATAR_LIMITS.side || (pixels += size[0] * size[1]) > MAVATAR_LIMITS.pixels) {
-      throw new LivLivError('too-large', `LivLiv: ${file} has pictures too large for this player (${path}: ${size[0]} x ${size[1]}; ${MAVATAR_LIMITS.side} px a side and ${MAVATAR_LIMITS.pixels} pixels in all at most)`)
-    }
-  }
-  if (!bytes) {
-    try { bytes = MA.packAvatar(entries) } catch (e) { throw refused(file, e) }
-  }
-  return { bytes, file }
-}
-
-/** what mesh-avatar said, as a LivLivError */
-function refused(file: string, e: unknown, code: 'invalid' | 'not-a-model' = 'invalid'): LivLivError {
-  if (e instanceof LivLivError) return e
-  const msg = String((e as Error)?.message ?? e).slice(0, 400)
-  if (/WebGL2 is not available/.test(msg)) return new LivLivError('no-webgl', 'LivLiv: a .mavatar needs WebGL2, and this browser gives none', { cause: e })
-  if (/exceeds 64 MB|more than \d+ entries/.test(msg)) return new LivLivError('too-large', `LivLiv: ${file} is too large for mesh-avatar (${msg})`, { cause: e })
-  if (/missing file/.test(msg)) return new LivLivError('missing-file', `LivLiv: ${file} lacks a file the avatar needs (${msg})`, { cause: e })
-  if (/invalid or truncated ZIP|expected stored compression|encrypted/.test(msg) || code === 'not-a-model') {
-    return new LivLivError('not-a-model', `LivLiv: ${file} is not a .mavatar this player can read (${msg})`, { cause: e })
-  }
-  return new LivLivError('invalid', `LivLiv: ${file} is a .mavatar with a problem (${msg})`, { cause: e })
-}
-
 /** the manifest's author and licence: the licence is free text, its id read when it starts with one (an SPDX id or a
  *  LicenseRef-), its URL the first one in it */
 function terms(m: AvatarManifest): MavatarTerms {
@@ -291,23 +230,13 @@ function terms(m: AvatarManifest): MavatarTerms {
   return { author, license: id || url ? { ...(id ? { id } : {}), ...(url ? { url } : {}) } : null, text, raw: m }
 }
 
-/** width and height from the start of a PNG, a JPEG or a WebP (anything else: null) */
-function pictureSize(d: Uint8Array): [number, number] | null {
-  const v = new DataView(d.buffer, d.byteOffset, d.byteLength), n = d.byteLength
-  if (n >= 24 && v.getUint32(0) === 0x89504e47 && v.getUint32(12) === 0x49484452) return [v.getUint32(16), v.getUint32(20)]
-  if (n >= 30 && v.getUint32(0) === 0x52494646 && v.getUint32(8) === 0x57454250) {
-    const kind = v.getUint32(12)
-    if (kind === 0x56503858) return [1 + (v.getUint32(24, true) & 0xffffff), 1 + (v.getUint32(27, true) & 0xffffff)]  // VP8X
-    if (kind === 0x5650384c) { const b = v.getUint32(21, true); return [1 + (b & 0x3fff), 1 + ((b >> 14) & 0x3fff)] }  // VP8L
-    if (kind === 0x56503820) return [v.getUint16(26, true) & 0x3fff, v.getUint16(28, true) & 0x3fff]  // VP8
-    return null
-  }
-  if (n < 4 || v.getUint16(0) !== 0xffd8) return null
-  for (let i = 2; i + 9 < n;) {
-    if (v.getUint8(i) !== 0xff) { i++; continue }
-    const mk = v.getUint8(i + 1)
-    if (mk >= 0xc0 && mk <= 0xcf && mk !== 0xc4 && mk !== 0xc8 && mk !== 0xcc) return [v.getUint16(i + 7), v.getUint16(i + 5)]
-    i += 2 + v.getUint16(i + 2)
-  }
-  return null
+/** Checks a .mavatar (the file, or its unpacked files by name) as load() does before anything is decoded or built:
+ *  mesh-avatar's own checks and MAVATAR_LIMITS. Resolves with the avatar's name (its avatar.json's, '' without one);
+ *  rejects with a LivLivError. For a page that takes files from people and would say no before placing a character */
+export async function checkMavatar(source: Blob | Map<string, Blob>): Promise<{ name: string }> {
+  const MA = await runtime()
+  const given = (source as File).name ?? ''
+  const files = source instanceof Blob ? new Map([[/\.(mavatar|zip)$/i.test(given) ? given : 'avatar.mavatar', source]]) : source
+  const { entries, file } = await entriesOf(files, MA)
+  return { name: inspect(entries, file, MA).manifest.name.trim().slice(0, 200) }
 }

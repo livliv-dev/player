@@ -38,6 +38,15 @@
     for (let y = Math.round(y0 * d.height); y < Math.round(y1 * d.height); y++) for (let x = 0; x < d.width; x++) if (d.data[4 * (y * d.width + x) + 3] > 128) { sx += x; n++ }
     return n ? sx / n / d.width : null
   }
+  /** where the dark of the eyes is (the irises) in a box: its middle, darkness-weighted, in canvas shares */
+  const darkAt = (d, [x0, y0, x1, y1]) => {
+    let sx = 0, sy = 0, n = 0
+    for (let y = Math.round(y0 * d.height); y < Math.round(y1 * d.height); y++) for (let x = Math.round(x0 * d.width); x < Math.round(x1 * d.width); x++) {
+      const i = 4 * (y * d.width + x), k = Math.max(0, 200 - (d.data[i] + d.data[i + 1] + d.data[i + 2]) / 3) * d.data[i + 3] / 255
+      sx += x * k; sy += y * k; n += k
+    }
+    return n ? [sx / n / d.width, sy / n / d.height] : null
+  }
   const REST = { angleX: 0, angleY: 0, angleZ: 0, eyeLOpen: 1, eyeROpen: 1, eyeBallX: 0, eyeBallY: 0, browLY: 0, browRY: 0, mouthOpen: 0, smile: 0, vowel: 0, bodyX: 0, bodyZ: 0, breath: 0 }
   const pose = (params = {}, expr = {}, move = {}) => ({ params: { ...REST, ...params }, move: { x: 0, y: 0, s: 1, ...move }, expr, view: { x: 0, y: 0, zoom: 1, head: false } })
   const player = async (source, css = 'width: 300px; height: 400px', options = {}) => {
@@ -91,6 +100,10 @@
     // which way the head and the picture went: the hair's middle in the upper rows
     const at = (ps) => { const d = draw(ps); return { top: middle(d, 0.1, 0.25), low: middle(d, 0.75, 0.95) } }
     out.lean = { rest: at(pose()), rollRight: at(pose({ angleZ: 25 })), yawRight: at(pose({ angleX: 25 })), bodyRoll: at(pose({ bodyZ: 9 })), right: at(pose({}, {}, { x: 0.3 })) }
+    // the gaze goes where it is told: the irises' dark to the right, left, up, down of where it rests (the eyes' box from a blink)
+    const eyes = out.poses.blink.box
+    out.gaze = Object.fromEntries(Object.entries({ rest: pose(), right: pose({ eyeBallX: 1 }), left: pose({ eyeBallX: -1 }), up: pose({ eyeBallY: 1 }), down: pose({ eyeBallY: -1 }) })
+      .map(([k, ps]) => [k, darkAt(draw(ps), eyes)]))
     // the same pose twice: the same picture (no state between frames without time)
     out.again = differ(draw(pose({ angleX: 25 })), draw(pose({ angleX: 25 }))).share
     // time: the hair swings on after a turn
@@ -115,6 +128,21 @@
     q.renderPose(pose(), 0, [160, 120])
     out.lone.wide = { size: [lone.width, lone.height], covered: covered(read(lone)) }
     q.dispose()
+    return out
+  }
+
+  /** the same avatar loaded again plays from the same package (mesh-avatar keeps what it loaded by URL): two at once, one
+   *  after both are gone; another avatar has its own */
+  window.runMavatarShared = async (url) => {
+    const bytes = await fixture(url), base = (p) => p.body.shown.pkg.assets['base.png']
+    const a = await player(url), b = await player(new File([bytes], 'again.mavatar'))
+    const out = { together: base(a) === base(b) }
+    const first = base(a); a.dispose(); b.dispose()
+    const c = await player(url)
+    out.after = base(c) === first
+    const other = await player(archive(bytes, { 'avatar.json': new TextEncoder().encode('{"format":"mesh-avatar","version":1,"name":"Other"}') }))
+    out.other = base(other) !== first && other.model.name === 'Other'
+    c.dispose(); other.dispose()
     return out
   }
 
