@@ -31,6 +31,13 @@ describe('checkMavatar: what passes', () => {
     const files = new Map(Object.entries(unpackAvatar(fixture)).map(([p, b]) => [p.split('/').pop()!, new Blob([b as BlobPart])]))
     assert.deepEqual(await checkMavatar(files), { name: 'Nana' })
   })
+  it('unpacked files may leave avatar.json out (mesh-avatar names them Avatar); an archive may not', async () => {
+    const files = new Map(Object.entries(unpackAvatar(fixture)).filter(([p]) => p !== 'avatar.json').map(([p, b]) => [p.split('/').pop()!, new Blob([b as BlobPart])]))
+    assert.deepEqual(await checkMavatar(files), { name: 'Avatar' })
+    const { zipSync } = await import('fflate'), all = unpackAvatar(fixture)
+    delete all['avatar.json']
+    assert.equal(await code(checkMavatar(new Blob([zipSync(all, { level: 0 }) as BlobPart]))), 'missing-file')
+  })
 })
 
 describe('checkMavatar: a rig that would build too much', () => {

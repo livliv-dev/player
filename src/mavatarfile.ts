@@ -47,7 +47,11 @@ export async function entriesOf(files: Map<string, Blob>, MA: Runtime): Promise<
   const packed = [...files].find(([n]) => /\.mavatar$/i.test(n)) ?? [...files].find(([n]) => /\.zip$/i.test(n))
   if (packed) {
     const [file, blob] = packed
-    try { return { entries: MA.unpackAvatar(new Uint8Array(await blob.arrayBuffer())), file } } catch (e) { throw refused(file, e, 'not-a-model') }
+    let entries: Entries
+    try { entries = MA.unpackAvatar(new Uint8Array(await blob.arrayBuffer())) } catch (e) { throw refused(file, e, 'not-a-model') }
+    // as mesh-avatar's openAvatar: an archive has its manifest (unpacked files may leave it out)
+    if (!entries['avatar.json']) throw new LivLivError('missing-file', `LivLiv: ${file} has no avatar.json, which a .mavatar has`)
+    return { entries, file }
   }
   const file = 'rig.json', entries: Entries = {}
   if (!files.has('rig.json')) throw new LivLivError('missing-file', 'LivLiv: no .mavatar file among the files, and no rig.json of an unpacked one')
@@ -103,7 +107,8 @@ export function inspect(entries: Entries, file: string, MA: Runtime): { manifest
   const parse = (path: string) => JSON.parse(new TextDecoder().decode(entries[path]))
   let manifest: AvatarManifest, rig: Rig
   try {
-    manifest = MA.parseManifest(entries['avatar.json'] ? parse('avatar.json') : { format: 'mesh-avatar', version: 1, name: '' })
+    // unpacked files without avatar.json: the manifest mesh-avatar's packAvatar gives them
+    manifest = MA.parseManifest(entries['avatar.json'] ? parse('avatar.json') : { format: 'mesh-avatar', version: 1, name: 'Avatar' })
     rig = MA.parseRig(parse('rig.json'))
   } catch (e) { throw refused(file, e) }
   const layers = parse('built/layers.json') as { layers?: Record<string, number[]> }
