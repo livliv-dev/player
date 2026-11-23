@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LivLiv Player: a Mesh Avatar Studio avatar</title>
+<!-- where the browser finds mesh-avatar (and, for the camera, MediaPipe) without a bundler -->
+<script type="importmap">{ "imports": {
+  "mesh-avatar": "https://cdn.jsdelivr.net/npm/mesh-avatar@0.9.0/dist/index.js",
+  "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/vision_bundle.mjs"
+} }</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #20222b; color: #eef; font: 14px system-ui, sans-serif }
+  canvas { display: block; width: 100%; height: 100% }
+  .bar { position: fixed; z-index: 1; left: 12px; right: 12px; top: 12px; display: flex; flex-wrap: wrap; gap: 6px }
+  button, label { font: inherit; padding: 6px 11px; border: 0; border-radius: 8px; background: #ffffff1c; color: inherit; cursor: pointer }
+  button[aria-pressed="true"] { background: #ff4d5e }
+  #status { position: fixed; z-index: 1; left: 12px; bottom: 12px; margin: 0; opacity: .8 }
+</style>
+<canvas id="stage"></canvas>
+<div class="bar" id="bar">
+  <label>open a .mavatar… <input id="pick" type="file" accept=".mavatar" hidden></label>
+  <button id="mic">microphone</button>
+  <button id="cam">camera</button>
+</div>
+<p id="status" role="status">Loading…</p>
+<script src="errors.js"></script>
+<script type="module">
+  import { BodyPlayer } from '../dist/body.js'
+  import { MavatarBody } from '../dist/mavatar.js'
+  import { cameraButton } from './camera.js'
+  import { sameSite, watchContext } from './loading.js'
+
+  const player = new BodyPlayer(document.getElementById('stage'), new MavatarBody())
+  watchContext(player)
+  const status = document.getElementById('status'), bar = document.getElementById('bar')
+  window.player = player
+
+  async function show(source) {
+    status.textContent = 'Loading…'
+    try {
+      const m = await player.load(source)
+      // the avatar's terms come with the file (avatar.json): a page playing other people's avatars should show them
+      const t = m.meta
+      status.textContent = [m.name, m.format, t?.author && `by ${t.author.name}`, t?.license && (t.license.id || t.license.url) || t?.text?.slice(0, 80)].filter(Boolean).join(' · ')
+      bar.querySelectorAll('.x').forEach((b) => b.remove())
+      for (const x of [{ id: null, label: 'neutral' }, ...m.expressions]) {
+        const b = document.createElement('button'); b.className = 'x'; b.textContent = x.label
+        b.onclick = () => player.setExpression(x.id); bar.append(b)
+      }
+      for (const a of ['nod', 'shake', 'tilt', 'hop']) {
+        const b = document.createElement('button'); b.className = 'x'; b.textContent = a; b.onclick = () => player.act(a); bar.append(b)
+      }
+    } catch (e) { if (e.name !== 'AbortError') status.textContent = e.message }  // (another was picked meanwhile)
+  }
+  document.getElementById('pick').onchange = (e) => e.target.files.length && show(e.target.files[0])
+  // without ?model=, Nana as a .mavatar (made by LivLiv for the tests; the featured characters' licence)
+  const url = new URLSearchParams(location.search).get('model')
+  if (url && sameSite(url)) show(url)
+  else if (url) status.textContent = '?model= opens files on this site only. For another file, save it and open it here.'
+  else show('../test/fixtures/nana.mavatar')
+
+  let mic = null
+  document.getElementById('mic').onclick = async (e) => {
+    if (mic) { mic.stop(); mic = null } else {
+      const { startLipSync } = await import('../dist/voice.js')
+      mic = await startLipSync(player).catch((err) => { status.textContent = err.message; return null })
+    }
+    e.target.setAttribute('aria-pressed', String(!!mic))
+  }
+  window.camera = cameraButton(document.getElementById('cam'), player, status)
+</script>
+</html>

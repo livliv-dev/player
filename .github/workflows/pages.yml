@@ -30,6 +30,8 @@ jobs:
         run: |
           mkdir _site
           cp -r dist example characters media _site/
+          # the .mavatar example's avatar (Nana, made by LivLiv for the tests)
+          mkdir -p _site/test/fixtures && cp test/fixtures/nana.mavatar _site/test/fixtures/
           cp example/pages-index.html _site/index.html
           touch _site/.nojekyll
           # the face model's files, served with the pages: the camera demo then needs neither jsDelivr nor Google's bucket
@@ -39,7 +41,7 @@ jobs:
           cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.* node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_nosimd_internal.* _site/mediapipe/wasm/
           curl -fsSL --retry 3 -o _site/mediapipe/face_landmarker.task https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
           echo "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  _site/mediapipe/face_landmarker.task" | sha256sum -c -
-          sed -i 's#https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@[^/]*/vision_bundle.mjs#../mediapipe/vision_bundle.mjs#' _site/example/demo.html _site/example/png.html _site/example/vrm.html
+          sed -i 's#https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@[^/]*/vision_bundle.mjs#../mediapipe/vision_bundle.mjs#' _site/example/demo.html _site/example/png.html _site/example/vrm.html _site/example/mavatar.html
           grep -q '"../mediapipe/vision_bundle.mjs"' _site/example/demo.html
           # three.js and three-vrm too, for the VRM page, so opening a .vrm online does not depend on a CDN either
           mkdir -p _site/vendor/three/build _site/vendor/three/examples/jsm/loaders _site/vendor/three/examples/jsm/utils _site/vendor/three-vrm
@@ -49,6 +51,11 @@ jobs:
           cp node_modules/@pixiv/three-vrm/lib/three-vrm.module.min.js _site/vendor/three-vrm/
           sed -i -e 's#https://cdn.jsdelivr.net/npm/three@[^/]*/build/three.module.js#../vendor/three/build/three.module.js#' -e 's#https://cdn.jsdelivr.net/npm/three@[^/]*/examples/jsm/#../vendor/three/examples/jsm/#' -e 's#https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@[^/]*/lib/three-vrm.module.min.js#../vendor/three-vrm/three-vrm.module.min.js#' _site/example/vrm.html
           grep -q '"../vendor/three/build/three.module.js"' _site/example/vrm.html
+          # and mesh-avatar (MIT, its licence with it) for the .mavatar page
+          mkdir -p _site/vendor/mesh-avatar
+          cp node_modules/mesh-avatar/dist/index.js node_modules/mesh-avatar/LICENSE _site/vendor/mesh-avatar/
+          sed -i 's#https://cdn.jsdelivr.net/npm/mesh-avatar@[^/]*/dist/index.js#../vendor/mesh-avatar/index.js#' _site/example/mavatar.html
+          grep -q '"../vendor/mesh-avatar/index.js"' _site/example/mavatar.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
