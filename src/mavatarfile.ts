@@ -1,8 +1,9 @@
 // A .mavatar read before mesh-avatar sees it (@livliv-dev/player/mavatar). A file from anyone (a friend's co-stream
 // character, a shared project) must not make mesh-avatar build a mesh that freezes the page or runs it out of memory:
 // mesh-avatar builds its meshes from the rig's numbers (rig.image over mesh.baseCell, a grid per layer, cloth columns and
-// rows), not from the pictures. So the pictures are measured from their headers, the rig's cost counted from its JSON,
-// both against MAVATAR_LIMITS, and only then is anything decoded.
+// rows), not from the pictures. So the pictures are measured from their headers and the rig's cost counted from its
+// JSON, both against MAVATAR_LIMITS, before mesh-avatar sees the file. The one picture decoded on the way is each overlay
+// (once a picture), to find its opaque part as mesh-avatar does: what it meshes.
 //
 // The package mesh-avatar plays from is one per distinct avatar (by its content): mesh-avatar keeps every picture and
 // JSON file it has loaded, by URL, for the life of the page, so the same avatar loaded again gets the same URLs, not new
@@ -11,7 +12,7 @@ import type { AvatarManifest, AvatarPackage, Rig } from 'mesh-avatar'
 import { BODY_LIMIT } from './body'
 import { LivLivError } from './errors'
 
-/** what a .mavatar may hold, checked before anything in it is decoded or built:
+/** what a .mavatar may hold, checked before mesh-avatar builds anything from it (the pictures from their headers):
  *  - side, pixels: a picture's side, and the pictures' pixels in all;
  *  - json: each JSON file (avatar.json, rig.json, layers.json, sprites.json, overlays.json), in bytes;
  *  - cell: a mesh cell's side at least, in pixels (rig.mesh: baseCell, fine.cell and the others);
@@ -19,12 +20,16 @@ import { LivLivError } from './errors'
  *    largest avatar measured, Mesh Avatar Studio's Miko sample with 41 575 (an avatar made from a LivLiv character has
  *    25 000 to 38 000);
  *  - points: the entries of any one list in the rig (an outline, a strand's nodes, a seam);
- *  - strands, accessories, garments, overlays: hair strands, swinging accessories, cloth layers, overlays.json entries;
+ *  - strands, accessories, garments, overlays, sprites, eyes: hair strands, swinging accessories, cloth layers,
+ *    overlays.json entries, sprites.json entries, rig.eyes. Each of the last five is a mesh mesh-avatar draws each frame
+ *    (an eye four): an avatar from Mesh Avatar Studio has 2 eyes, 16 sprites, 2 accessories (its Miko sample); one made
+ *    from a LivLiv character 2 eyes and 6 to 14 sprites (a .mavatar holds 200 files at most, mesh-avatar's limit, and a
+ *    sprite is a file of its own: the sprites' limit holds for unpacked files too);
  *  - garmentSide: a garment's columns, and its rows.
  *  The rig's picture size (rig.image) must also be the base picture's own, and its accessories' names its own each. */
 export const MAVATAR_LIMITS = {
   side: 8192, pixels: 64 * 2 ** 20, json: 2 ** 20, cell: 2, vertices: 131_072,
-  points: 512, strands: 64, accessories: 32, garments: 16, overlays: 64, garmentSide: 64,
+  points: 512, strands: 64, accessories: 32, garments: 16, overlays: 64, sprites: 128, eyes: 4, garmentSide: 64,
 } as const
 
 type Runtime = typeof import('mesh-avatar')
@@ -84,7 +89,8 @@ export async function entriesOf(files: Map<string, Blob>, MA: Runtime): Promise<
 }
 
 /** The avatar's manifest and rig, once its files pass mesh-avatar's own checks and this player's limits (see
- *  MAVATAR_LIMITS): nothing is decoded or built before */
+ *  MAVATAR_LIMITS): the pictures measured from their headers first, the overlays then decoded once each to find their
+ *  opaque part (as mesh-avatar does), nothing built */
 export async function inspect(entries: Entries, file: string, MA: Runtime): Promise<{ manifest: AvatarManifest; rig: Rig }> {
   // the JSON files' sizes, before any is parsed
   for (const [path, data] of Object.entries(entries)) {
@@ -119,6 +125,13 @@ export async function inspect(entries: Entries, file: string, MA: Runtime): Prom
   const list = entries['built/overlays/overlays.json'] ? (parse('built/overlays/overlays.json') as { overlays?: unknown }).overlays : []
   const items = Array.isArray(list) ? list as { name?: unknown; file?: unknown }[] : []
   if (items.length > MAVATAR_LIMITS.overlays) throw tooLarge(file, `${items.length} overlays (${MAVATAR_LIMITS.overlays} at most)`)
+  // a plain file name each, as mesh-avatar's validateAvatarFiles has it (and its loader looks it up as it is): no folders,
+  // no ., .., / or \, nothing after .png; and there
+  for (const o of items) {
+    if (typeof o?.file !== 'string' || !/^[A-Za-z0-9_-]+\.png$/.test(o.file) || !entries[`built/overlays/${o.file}`]) {
+      throw new LivLivError('invalid', `LivLiv: ${file}'s overlays.json names a picture that is not a plain file of it (${String(o?.file).slice(0, 60)})`)
+    }
+  }
   const byName = new Map(items.map((o) => [String(o?.name), `built/overlays/${String(o?.file)}`]))
   const opaque = new Map<string, number[] | null>()
   for (const path of new Set(byName.values())) opaque.set(path, entries[path] ? await opaqueRect(entries[path], sizes.get(path)!) : null)
@@ -147,6 +160,9 @@ export function limits(rig: Rig, layers: { layers?: Record<string, number[]> }, 
   const count = (k: string) => (Array.isArray(R[k]) ? (R[k] as unknown[]).length : 0)
   if (count('strands') > L.strands) throw tooLarge(file, `${count('strands')} hair strands (${L.strands} at most)`)
   if (count('accessories') > L.accessories) throw tooLarge(file, `${count('accessories')} accessories (${L.accessories} at most)`)
+  if (count('eyes') > L.eyes) throw tooLarge(file, `${count('eyes')} eyes (${L.eyes} at most)`)
+  const spriteCount = Object.keys(sprites?.layers ?? {}).length
+  if (spriteCount > L.sprites) throw tooLarge(file, `${spriteCount} sprites (${L.sprites} at most)`)
   const names = (rig.accessories ?? []).map((a) => String(a?.name))
   if (new Set(names).size !== names.length) throw new LivLivError('invalid', `LivLiv: ${file}'s rig names an accessory twice`)
   if (count('cloth') > L.garments) throw tooLarge(file, `${count('cloth')} garments (${L.garments} at most)`)

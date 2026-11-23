@@ -80,6 +80,24 @@ describe('checkMavatar: one mesh per entry, as mesh-avatar builds them', () => {
   it('overlays.json entries that all name one large picture: a mesh each', async () => {
     assert.equal(await code(checkMavatar(overlay(40))), 'too-large')
   })
+  it("an overlay's file: a plain name of the archive, nothing else (no folders, ., .., /, \\, ? or a missing file)", async () => {
+    const { zipSync } = await import('fflate')
+    for (const name of ['../base.png', './glasses.png', 'glasses.png?', '/glasses.png', 'a\\glasses.png', 'gone.png']) {
+      const all = unpackAvatar(fixture)
+      all['built/overlays/glasses.png'] = all['built/eye0_crease.png']
+      all['built/overlays/overlays.json'] = enc({ version: 1, overlays: [{ name: 'g', file: name }] })
+      // packed as is: packAvatar would refuse these itself
+      assert.equal(await code(checkMavatar(new Blob([zipSync(all, { level: 0 }) as BlobPart]))), name === 'gone.png' ? 'missing-file' : 'invalid', name)
+    }
+  })
+  it('more sprites.json entries than the limit: a mesh, and a draw, each', async () => {
+    const many = changed((_rig, _layers, files) => {
+      const sheet = dec(files['built/sprites/sprites.json']), one = Object.keys(sheet.layers)[0]
+      for (let i = 0; i < MAVATAR_LIMITS.sprites; i++) { sheet.layers[`x${i}`] = sheet.layers[one]; files[`built/sprites/x${i}.png`] = files[`built/sprites/${one}.png`] }
+      files['built/sprites/sprites.json'] = enc(sheet)
+    })
+    assert.equal(await code(checkMavatar(many)), 'too-large')
+  })
   it('more overlays.json entries than the limit', async () => {
     const many = changed((_rig, _layers, files) => {
       files['built/overlays/dot.png'] = files['built/eye0_crease.png']
@@ -96,6 +114,10 @@ describe('the rig limits, one by one', () => {
     try { limits(rig, layers, null, [], [rig.image.width, rig.image.height], 'x.mavatar'); return 'ok' } catch (e) { return (e as { code?: string }).code }
   }
   it('the fixture as it is', () => assert.equal(run(() => {}), 'ok'))
+  it('eyes: a mesh for each of their four parts', () => {
+    assert.equal(run((rig) => { rig.eyes = Array.from({ length: MAVATAR_LIMITS.eyes + 1 }, () => rig.eyes[0]) }), 'too-large')
+    assert.equal(run((rig) => { rig.eyes = Array.from({ length: MAVATAR_LIMITS.eyes }, () => rig.eyes[0]) }), 'ok')
+  })
   it('hair strands, accessories, garments', () => {
     assert.equal(run((rig) => { rig.strands = Array.from({ length: MAVATAR_LIMITS.strands + 1 }, () => rig.strands[0]) }), 'too-large')
     assert.equal(run((rig) => { rig.accessories = Array.from({ length: MAVATAR_LIMITS.accessories + 1 }, () => ({})) }), 'too-large')
