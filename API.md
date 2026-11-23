@@ -103,6 +103,7 @@ paths outside the package, an encrypted or oversized ZIP are refused with an err
 |---|---|
 | `signal` | an `AbortSignal` that calls the load off: it rejects with an `AbortError` (or the signal's own reason) and the character before stays |
 | `onProgress` | called with `{ step: 'download', progress }` as the files come in (0..1, always rising; bytes for a package, images for a folder; where the size is not known, 0 and then 1), then once with `{ step: 'build' }` as the character goes in |
+| `continueMotion` | `true`: the new character takes the motion over where the one before is: the springs of its hair and swinging pieces, the body's lag behind the head, the long hair's swing, and the expression showing (if it has it). For the same character edited and loaded again: its next frame goes on from its last, where by default a new character starts at rest. A feel setting changed with an editor's slider needs no load at all: see `setTuning()` |
 | `poster` | the URL of a picture to show until the first frame (a featured character's `cover.webp`). It is the canvas's CSS background, so it fits the canvas's box, adds nothing to the page, and the canvas's own background comes back after. Only while the canvas shows nothing yet: over a character, that one stays until the next is ready |
 
 **A new `load()` replaces one still running**, so the last one asked for is the one that plays, and the download before it

@@ -352,7 +352,11 @@ function browLimits(A: ModelDef['anchors'], amp: number): [number, number] {
 }
 
 /** what a caller may give a load: see Puppet.load */
-interface LoadExtras { signal?: AbortSignal; onImage?: (came: number, of: number) => void }
+interface LoadExtras {
+  signal?: AbortSignal; onImage?: (came: number, of: number) => void
+  /** the new model takes the motion over where the one before is (carryMotion): the same character, edited and loaded again */
+  keepMotion?: boolean
+}
 
 /** a layer's images, as they came in */
 interface LayerImages { main: HTMLImageElement; frames: HTMLImageElement[]; mask?: HTMLImageElement; talk?: HTMLImageElement; brows?: HTMLImageElement }
@@ -685,7 +689,7 @@ export class Puppet {
    *  exported package has none: the SDK turns it off rather than ask for it and get a 404). signal: calls the load off
    *  until the model starts going in, which then happens at once and whole; it rejects with the signal's reason and the
    *  model before stays. onImage: each image that has come in, of how many */
-  async load(baseUrl: string, { png = false, pack: usePack = true, signal, onImage }: { png?: boolean; pack?: boolean } & LoadExtras = {}) {
+  async load(baseUrl: string, { png = false, pack: usePack = true, signal, onImage, keepMotion }: { png?: boolean; pack?: boolean } & LoadExtras = {}) {
     const { file, base, query } = locate(baseUrl)
     const r = await fetch(file + (query ? `?${query}` : ''), { cache: 'no-store', signal })
     if (!r.ok) throw Object.assign(new Error(r.status === 404 ? 'model not found' : `model.json ${r.status}`), { status: r.status })
@@ -714,12 +718,12 @@ export class Puppet {
     const pack = png || !usePack ? null : await loadPack(packUrl(baseUrl, tag), signal)
     // (an <img> cannot be called off: setting src to '' is an error, removing it never ends)
     const fetched = (f: string) => (signal ? fetchImage(base + f + v, signal) : loadImage(base + f + v))
-    await this.loadModel(model, (f) => { const b = pack?.get(f); return b ? loadBlob(b) : fetched(f) }, { png, keyforms, signal, onImage })
+    await this.loadModel(model, (f) => { const b = pack?.get(f); return b ? loadBlob(b) : fetched(f) }, { png, keyforms, signal, onImage, keepMotion })
   }
 
   /** a model from anywhere (the SDK: files the user picked): its model.json, and each image it names by its path there */
   async loadModel(raw: ModelDef, image: (path: string) => Promise<HTMLImageElement>,
-    { png = false, keyforms: keyformsComing, signal, onImage }: { png?: boolean; keyforms?: KeyformFile | Promise<KeyformFile | undefined> } & LoadExtras = {}) {
+    { png = false, keyforms: keyformsComing, signal, onImage, keepMotion = false }: { png?: boolean; keyforms?: KeyformFile | Promise<KeyformFile | undefined> } & LoadExtras = {}) {
     const model = readModel(raw)
     let asked = 0, came = 0
     const arrived = (i: HTMLImageElement) => { onImage?.(++came, asked); return i }
@@ -741,13 +745,13 @@ export class Puppet {
         throw coded('too-large', `this model's images are too large (${w} x ${h}: ${most} px a side and ${LIMITS.texels} pixels in all at most)`)
       }
     }
-    this.install(model, imgs, keyforms)
+    this.install(model, imgs, keyforms, keepMotion)
   }
 
   /** the model in place of the one before, or, if anything throws on the way (its layers, its keyforms, the GPU out of
    *  memory), the one before exactly as it was: its layers on the GPU, every field, every spring. All in one go: no frame
    *  runs in between. The GPU holds both for that moment */
-  private install(model: ModelDef, imgs: LayerImages[], keyforms: KeyformFile | undefined) {
+  private install(model: ModelDef, imgs: LayerImages[], keyforms: KeyformFile | undefined, keepMotion = false) {
     const gl = this.gl
     // every field; copies of the two this changes in place rather than replaces
     const before = { ...this, drive: { ...this.drive }, sway: { ...this.sway },
@@ -764,8 +768,27 @@ export class Puppet {
       Object.assign(this, before)
       throw e
     }
+    if (keepMotion) this.carryMotion(before as unknown as Puppet)
     this.freeLayers(before.layers)
     this.freeMask()
+  }
+
+  /** What goes on from the model before (`b`, as it was) to this one, built in its place: the hair groups' springs, each
+   *  swinging chain with the same id and as many joints, the torso's lag behind the head, the face's drive, the long hair's
+   *  swing, a full-body figure's motion, and the expressions as they show. For the same character edited and loaded again:
+   *  its next frame goes on from its last instead of starting at rest. Anything else of it starts as a new model's does */
+  private carryMotion(b: Puppet) {
+    for (const [g, c] of Object.entries(b.chains) as [Group, [Spring, Spring]][]) this.chains[g]?.forEach((q, i) => { if (c[i]) Object.assign(q, c[i]) })
+    const runs = new Map(b.chainRuns.map((C) => [C.def.id, C]))
+    for (const C of this.chainRuns) {
+      const o = runs.get(C.def.id)
+      if (!o || o.p.length !== C.p.length) continue
+      C.p.set(o.p); C.q.set(o.q); C.disp.set(o.disp); C.beta.set(o.beta)
+      C.W = [...o.W]; C.V = [...o.V]; C.acc = [...o.acc]; C.rho = o.rho; C.started = o.started; C.moving = o.moving; C.phase = o.phase
+    }
+    Object.assign(this, { lastHead: { ...b.lastHead }, drive: { ...b.drive }, body: { ...b.body }, bust: { ...b.bust }, fbm: { ...b.fbm }, sway: { ...b.sway },
+      crouch: b.crouch, dip: b.dip, expr: { ...b.expr }, smileShown: b.smileShown })
+    this.pv.roll = NaN
   }
 
   private build(model: ModelDef, imgs: LayerImages[], keyforms: KeyformFile | undefined, built: GLLayer[]) {

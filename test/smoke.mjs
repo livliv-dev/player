@@ -262,6 +262,14 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} @livliv-dev/player/runtime: the same renderer as Player's, warm-up ${r.warm.join('/')} (Player/runtime), layersAt() as livliv.ai's pickPosed at ${r.cases - r.wrong.length} of ${r.cases} points in 4 poses (${r.named}), ${r.meshes.n} meshes${ok ? '' : `: ${JSON.stringify({ ...r, wrong: r.wrong.slice(0, 5) })}`}`)
   }
 
+  // loaded again while it moves (see runContinue): with continueMotion no jump, without it the motion starts at rest
+  for (const id of [ids.find((i) => i === 'k01') ?? ids[0], ids.find((i) => i === 'f05') ?? ids[0]]) {
+    const r = await page.evaluate((a) => window.runContinue(a), id)
+    const ok = r.go.step <= r.go.most && r.go.expr && r.rest.step > r.rest.most && !r.rest.expr
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${id} loaded again while it moves: continueMotion changes ${(r.go.step * 100).toFixed(1)} % of the frame (a frame's own motion up to ${(r.go.most * 100).toFixed(1)} %), the expression kept; at rest ${(r.rest.step * 100).toFixed(1)} %`)
+  }
+
   // long hair's swing (see runSway), on a character with long hair
   {
     const id = ids.find((i) => i === 'f05') ?? ids[0]

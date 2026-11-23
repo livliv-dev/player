@@ -73,7 +73,7 @@ const bodyTranslations: string[] = bodyPlayer.expressions.map((e) => e.labels.en
 void [playerLabels, playerTranslations, bodyLabels, bodyTranslations]
 // @ts-expect-error unknown expression fields stay rejected, not widened to any
 void player.expressions.map((e) => e.nope)
-const options: LoadOptions = { signal: new AbortController().signal, poster: '/cover.webp', onProgress: (p: LoadProgress) => void (p.step === 'download' ? p.progress : 0) }
+const options: LoadOptions = { signal: new AbortController().signal, poster: '/cover.webp', continueMotion: true, onProgress: (p: LoadProgress) => void (p.step === 'download' ? p.progress : 0) }
 const again: Promise<ModelInfo> = player.load('/avatars/sena.livliv', options)
 const point: [number, number] = player.canvasToModel(1, 2)
 const moved: number = player.poke(point[0], point[1])

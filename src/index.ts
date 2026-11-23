@@ -119,10 +119,10 @@ export class Player extends PlayerBase<ModelInfo> {
   /** Loads a model (see ModelSource) and shows it in place of the one before. A load that fails keeps it; a new load
    *  replaces one still running, which rejects with an AbortError (see LoadOptions) */
   load(source: ModelSource, options: LoadOptions = {}): Promise<ModelInfo> {
-    return this.start(options, (job) => this.loadNow(source, job))
+    return this.start(options, (job) => this.loadNow(source, job, !!options.continueMotion))
   }
 
-  private async loadNow(source: ModelSource, job: LoadJob): Promise<ModelInfo> {
+  private async loadNow(source: ModelSource, job: LoadJob, keepMotion: boolean): Promise<ModelInfo> {
     const p = this.puppet, { signal } = job
     let files: Exclude<ModelSource, string | URL> | null = null
     if (typeof source === 'string' || source instanceof URL) {
@@ -134,14 +134,14 @@ export class Player extends PlayerBase<ModelInfo> {
         if (signal.aborted) throw signal.reason
       } else {
         job.progress(0)
-        await p.load(url.href, { pack: false, signal, onImage: (came, of) => { job.progress(came / of); if (came === of) job.build() } }).catch((e) => { throw explain(e, url.href) })
+        await p.load(url.href, { pack: false, signal, keepMotion, onImage: (came, of) => { job.progress(came / of); if (came === of) job.build() } }).catch((e) => { throw explain(e, url.href) })
       }
     } else files = source
     if (files) {
       job.build()
       const { model, image, keyforms } = await fromFiles(files)
       if (signal.aborted) throw signal.reason
-      await p.loadModel(model, image, { keyforms, signal }).catch((e) => { throw explain(e, 'model.json') })
+      await p.loadModel(model, image, { keyforms, signal, keepMotion }).catch((e) => { throw explain(e, 'model.json') })
     }
     // the model is in: from here it is this load's, whatever came after it
     // (disposed in the moment since: nothing of it may stay or be drawn)
@@ -162,7 +162,7 @@ export class Player extends PlayerBase<ModelInfo> {
     const kind = m.meta ? m.meta.watermark?.kind ?? 'none' : m.watermark === 'LivLiv' ? 'livliv' : m.watermark ? 'text' : 'none'
     this.mark.set(kind, m.watermark ?? null, m.meta?.watermark?.center !== false)
     this.retunePending = false  // its keyforms were measured at its own settings
-    this.neutral()
+    this.neutral(keepMotion, (id) => this.info!.expressions.some((e) => e.id === id))
     if (!this.playing) this.resize()
     return this.info
   }

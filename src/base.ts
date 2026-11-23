@@ -123,6 +123,11 @@ export interface LoadOptions {
    *  already aborted signal rejects at once and leaves a load that is running alone */
   signal?: AbortSignal
   onProgress?: (progress: LoadProgress) => void
+  /** the new character takes the motion over where the one before is, instead of starting at rest: for the same character
+   *  edited and loaded again (an editor's change), so its next frame goes on from its last. Its springs (hair, swinging
+   *  pieces), the body's lag behind the head, the long hair's swing and the expression showing go on; its own feel settings
+   *  are still the new file's. Default false: a new character starts at rest, as before */
+  continueMotion?: boolean
   /** the URL of a picture to show until the first frame (a character's cover.webp), as the canvas's CSS background: it
    *  fits the canvas's box, adds nothing to the page, and the canvas's own background comes back after. Only while the
    *  canvas shows nothing yet: over a character, that one stays until the next is ready */
@@ -417,10 +422,13 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     return run
   }
 
-  /** a new character starts on a neutral face
+  /** a new character starts on a neutral face; with `go` on (LoadOptions.continueMotion), it goes on with the expression
+   *  asked for (if it has it), the smile and the motion's smoothing
    *  @internal */
-  protected neutral() {
-    this.expr = {}; this.smile = 0; this.replaying = false; this.parameterFilter.reset()
+  protected neutral(go = false, has: (id: string) => boolean = () => false) {
+    this.replaying = false
+    if (go) { for (const k of Object.keys(this.expr)) if (!has(k)) delete this.expr[k]; return }
+    this.expr = {}; this.smile = 0; this.parameterFilter.reset()
     this.ground = { crouch: 0, dip: 0, talk: 0 }
   }
 

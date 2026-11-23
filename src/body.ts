@@ -126,7 +126,9 @@ export class BodyPlayer extends PlayerBase<BodyInfo> {
         .map((e) => ({ id: e.id, label: e.label, labels: e.labels ?? { en: e.label } }))]
       this.info = { name: got.name, format: this.body.format, meta: got.meta ?? null,
         expressions: ex.map((e) => ({ id: e.id, label: pickLabel(e.labels, this.lang, e.label || e.id), labels: e.labels })) }
-      this.neutral(); this.pose.expr = {}; this.own = defaultFeel()
+      const go = !!options.continueMotion, ids = new Set(this.info.expressions.map((e) => e.id))
+      this.neutral(go, (id) => ids.has(id)); this.own = defaultFeel()
+      if (go) { for (const k of Object.keys(this.pose.expr)) if (!ids.has(k)) delete this.pose.expr[k] } else this.pose.expr = {}
       if (!this.playing) this.resize()
       return this.info
     }))
