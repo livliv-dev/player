@@ -183,6 +183,38 @@ not a number counts as the default.
   of following the pointer; `lookAt(null)` goes back to the pointer. Needs `idle`.
 - `blink()`: blinks now (with `idle`).
 
+### Feel settings: `tuning` and `setTuning()`
+
+A model carries its owner's feel settings (`tuning` in model.json), each a factor with 1 the default. The player plays
+the character with them; `player.tuning` gives them as they play now (a frozen copy), and `setTuning(changes)` changes
+some while it plays, without loading it again, so an editor's sliders show at once:
+
+```js
+player.setTuning({ turn: 1.3, blink: 0.6 })   // the next frame shows them (on a paused player, call resize())
+player.setTuning({ turn: undefined })         // back to the model's own
+player.tuning.turn                            // 1 (if the model says nothing)
+```
+
+| setting | in model.json (format 4) | what it scales |
+|---|---|---|
+| `turn` | `turn` | how far the head turns and tilts, and the body with it |
+| `nod` | `nod` | how far the head nods, on top of `turn` |
+| `hair` | `hair` | how freely the hair and the swinging pieces swing |
+| `hairFront` | `hair_front` | the bangs' swing, in place of `hair` |
+| `hairBack` | `hair_back` | long hair's and the swinging pieces' swing, in place of `hair` |
+| `breath` | `breath` | breathing |
+| `gaze` | `gaze` | the share of the iris's travel the eyes use, 0..1 (more counts as 1) |
+| `fringe` | `fringe` | how far the bangs stand off the face: their depth times this, 0 on the face, at most about twice |
+| `blink` | `blink` | how often the idle motion blinks |
+| `expr` | `expr` | how readily face tracking reads a smile |
+| `mouth` | `mouth` | how far face tracking and live lip sync open the mouth |
+
+A value is a number from 0 up (model files keep to 0..10); `undefined` or `null` puts a setting back to the model's own.
+A name that is no setting, or a value that is no number from 0 up, throws a `TypeError` and changes nothing. Each
+`load()` starts again from the new character's own settings. At 1 (or not set) a setting changes nothing: a model
+without `tuning` plays as it always has. Changing `turn` or `nod` on a model with keyforms measures its key poses again
+before the next frame, so it draws exactly as it would loaded with those settings.
+
 ### Placement and the loop
 
 - `view`: `{ x, y, zoom, head, fit }`. `x`, `y` move the character by shares of the canvas (y up), `zoom` scales it about the
@@ -284,7 +316,8 @@ sync.stop()
 ```
 
 Options for both: `motion` (0..2, default 1: how much the voice moves the head; 0 = mouth only) and `bounce` (hop on
-syllables, default false). `startLipSync` returns `{ level, gain, stop() }`. A stream or element you pass in stays
+syllables, default false). `startLipSync` returns `{ level, gain, stop() }`: `gain` is the mouth's sensitivity (default
+1), times the character's own (its [feel setting](#feel-settings-tuning-and-settuning) `mouth`). A stream or element you pass in stays
 yours: `stop()` leaves it playing. Browsers let an `<audio>` element be routed through Web Audio only once, so after
 `startLipSync(player, el)` that element always plays through the player's audio context (it still plays normally).
 
@@ -341,7 +374,8 @@ const tracking = await startFaceTracking(player).catch((e) => {
 | `profile` | | a response profile for the camera's values, see [Response profiles](#response-profiles) |
 
 `tracking.video` is the camera's `<video>` element, for a preview (null with a `trace`). The tracker owns its stream
-and stops it on `stop()`: show the element, don't stop its tracks.
+and stops it on `stop()`: show the element, don't stop its tracks. The character's [feel settings](#feel-settings-tuning-and-settuning)
+`mouth` and `expr` set how far the tracked mouth opens and how readily a smile is read, each frame.
 
 By default the wasm comes from jsDelivr (`@mediapipe/tasks-vision@1.1.1/wasm`) and the model from Google's
 `mediapipe-models` bucket. In production, host those files yourself and pass `wasmUrl` / `modelUrl`. While no face is
@@ -387,6 +421,8 @@ const remove = player.use({
 remove()
 ```
 
+`update(frame, player)` gets the frame and the player (any `Host`: one with `use()`, `blink()` and, optionally,
+`tuning`, the [feel settings](#feel-settings-tuning-and-settuning)).
 `frame` has `params` (the pose so far), `dt`, `time`, `tracked` (a face tracker drives the head), `add(offsets)`,
 `move` (`{ x, y, s }`: move / scale the picture this frame), `talk` (a talking bob, a share of the canvas, <= 0: lip sync
 writes it) and `grounded` (a full-body character, whose feet stay on the ground: a move down crouches it, `move.x`
@@ -442,7 +478,9 @@ await vrm.load('/avatars/me.vrm')            // a URL, a File, or files picked
 A failed `load()` keeps the character before, as on a Player. A canvas has one kind of context for good: a PNGTuber draws in 2D, a Player and a VRM in WebGL2, so a PNGTuber on a canvas that was a Player's (or the other way round) is refused with an error; give it its own.
 A BodyPlayer takes the same `load()` options and its errors are the same, with one difference: a Body swaps its character
 inside its own `load`, which cannot be interrupted, so a character already going in finishes and the newer one follows.
-Downloads and loads still waiting are replaced, as on a Player. It draws no mark and has no `poke` or `canvasToModel`;
+Downloads and loads still waiting are replaced, as on a Player. Its [feel settings](#feel-settings-tuning-and-settuning)
+start at 1 with each load (a body's files carry none); `setTuning()` changes them, and `blink`, `expr` and `mouth` count.
+It draws no mark and has no `poke` or `canvasToModel`;
 `view.head` is not used. `onContextLost` and `dispose({ release })` are for a VRM; a PNGTuber has no context to lose. Live2D models (`.moc3`) are not supported:
 reading them takes Live2D's proprietary Cubism Core, under its own licence.
 

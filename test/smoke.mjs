@@ -242,6 +242,15 @@ try {
     const ok = t.blink === 2.5 && t.expr === 0.5 && t.mouth === 1.5 && t.hairFront === 1.2 && t.turn === 1 && r.frozen && r.still === 0
     if (!ok) failed++
     console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame`)
+    const kf = ids.find((id) => JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')).files?.keyforms)
+    const s = await page.evaluate(([a, b]) => window.runSetTuning(a, b), [ids.find((i) => i === 'k01') ?? ids[0], kf ?? ids[0]])
+    const zero = (xs) => xs.every((n) => n === 0), some = (xs) => xs.some((n) => n > 0)
+    const own = s.keyforms.tuning
+    const setOk = zero(s.plain.set) && some(s.plain.moved) && zero(s.keyforms.set) && some(s.keyforms.moved) && zero(s.keyforms.back)
+      && s.keyforms.keys[0] === s.keyforms.keys[1] && s.keyforms.keys[1] !== s.keyforms.keys[2] && own[0] === own[2] && own[1] === own[3]
+      && s.next.turn === 1 && s.next.mouth === 1
+    if (!setOk) failed++
+    console.log(`${setOk ? 'ok  ' : 'FAIL'} setTuning() draws as a load with the same settings: ${s.plain.set.join('/')} px differ (${s.plain.moved.join('/')} from the character's own); with keyforms (${kf}) ${s.keyforms.set.join('/')} px (keys ${s.keyforms.keys[1]}), set back ${s.keyforms.back.join('/')} px, a frame ${s.keyforms.ms[0]} ms, with the keys measured again ${s.keyforms.ms[1]} ms${setOk ? '' : `: ${JSON.stringify(s)}`}`)
   }
 
   // a model that breaks while it is built (see runKeep): the character before stays, to the pixel

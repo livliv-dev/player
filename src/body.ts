@@ -98,6 +98,8 @@ export class BodyPlayer extends PlayerBase<BodyInfo> {
   protected get shownExpr() { return this.pose.expr }
   /** @internal */
   protected get feel() { return this.own }
+  /** @internal */
+  protected get ownFeel() { return defaultFeel() }
 
   /** the body's head in the terms the idle's pointAt reads a puppet in (its canvas shares as clip space)
    *  @internal */
@@ -124,7 +126,7 @@ export class BodyPlayer extends PlayerBase<BodyInfo> {
         .map((e) => ({ id: e.id, label: e.label, labels: e.labels ?? { en: e.label } }))]
       this.info = { name: got.name, format: this.body.format, meta: got.meta ?? null,
         expressions: ex.map((e) => ({ id: e.id, label: pickLabel(e.labels, this.lang, e.label || e.id), labels: e.labels })) }
-      this.neutral(); this.pose.expr = {}
+      this.neutral(); this.pose.expr = {}; this.own = defaultFeel()
       if (!this.playing) this.resize()
       return this.info
     }))

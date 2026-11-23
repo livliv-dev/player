@@ -1,6 +1,6 @@
 // The character's feel settings (tuning) that the player itself reads, without a GPU: the blink rate in the idle motion,
 // and the mouth and expression gains that face tracking and lip sync take from the host. At 1 (or missing) everything
-// is as it was.
+// is as it was. setTuning() changes them live (the renderer's settings are checked in the browser smoke test).
 import assert from 'node:assert/strict'
 import { describe, it, type TestContext } from 'node:test'
 import { BodyPlayer, type Body, type Host, type Tuning } from '../src/body'
@@ -40,7 +40,7 @@ async function blinks(t: TestContext, feel: Partial<Tuning>, seconds = 120) {
   seeded(t)
   const p = new BodyPlayer(canvas(), body(), { autoplay: false, followPointer: false })
   await p.load(new Map([['m', new Blob(['x'])]]))
-  Object.assign((p as unknown as { own: Tuning }).own, feel)
+  p.setTuning(feel)
   const eyes: number[] = []
   p.onFrame = (pose) => { eyes.push(pose.params.eyeLOpen) }
   p.play()
@@ -108,6 +108,42 @@ describe('feel settings the player reads', () => {
       ft.stop()
     }
     assert.deepEqual(seen, [[1, 1], [1, 1], [1.6, 0.7], [0, 1e-3]])
+  })
+
+  it('setTuning changes them live: the next frames blink at the new rate', async (t) => {
+    const { frame } = page(t)
+    seeded(t)
+    const p = new BodyPlayer(canvas(), body(), { autoplay: false, followPointer: false })
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    let n = 0, last = 1
+    p.onFrame = (pose) => { if (pose.params.eyeLOpen < 0.5 && last >= 0.5) n++; last = pose.params.eyeLOpen }
+    p.play()
+    for (let i = 0; i < 60 * 60; i++) frame()
+    const before = n
+    p.setTuning({ blink: 4 })
+    n = 0
+    for (let i = 0; i < 60 * 60; i++) frame()
+    assert.ok(n > before * 2.5, `${n} blinks in the minute after, ${before} in the one before`)
+    p.dispose()
+  })
+
+  it('setTuning: undefined or null puts a setting back, and a wrong call changes nothing', async (t) => {
+    page(t)
+    const p = new BodyPlayer(canvas(), body(), { autoplay: false })
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    p.setTuning({ blink: 3, mouth: 0, hairFront: 2, fringe: 0.5 })
+    assert.deepEqual({ ...p.tuning }, { ...defaults, blink: 3, mouth: 0, hairFront: 2, fringe: 0.5 })
+    p.setTuning({ blink: undefined, hairFront: null, mouth: 1.25 })
+    assert.deepEqual({ ...p.tuning }, { ...defaults, mouth: 1.25, fringe: 0.5 }, 'blink back to 1, hairFront gone')
+    const was = { ...p.tuning }
+    for (const bad of [{ blink: -1 }, { blink: NaN }, { blink: Infinity }, { mouth: '2' }, { blinks: 2 }, { expr: 2, nope: 1 }, { expr: 2, turn: -0.1 }]) {
+      assert.throws(() => p.setTuning(bad as never), TypeError, JSON.stringify(bad))
+      assert.deepEqual({ ...p.tuning }, was, `${JSON.stringify(bad)} changed nothing`)
+    }
+    assert.throws(() => p.setTuning(null as never), TypeError)
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    assert.deepEqual({ ...p.tuning }, defaults, 'a load starts again from the character\'s own')
+    p.dispose()
   })
 
   it('a body player\'s feel settings start at 1, and its tuning is a frozen copy', async (t) => {

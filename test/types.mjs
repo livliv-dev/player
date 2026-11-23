@@ -16,7 +16,7 @@ fs.rmSync(dir, { recursive: true, force: true })
 fs.mkdirSync(path.join(dir, 'node_modules', path.dirname(name)), { recursive: true })
 fs.symlinkSync(root, path.join(dir, 'node_modules', name), 'dir')
 fs.writeFileSync(path.join(dir, 'use.ts'), `
-import { LivLivError, Player, VERSION, type ActionId, type Driver, type Fit, type Frame, type LivLivErrorCode, type LoadOptions, type LoadProgress, type ModelInfo, type PlaybackPose, type View } from '${name}'
+import { LivLivError, Player, VERSION, type ActionId, type Driver, type Fit, type Frame, type Host, type LivLivErrorCode, type LoadOptions, type LoadProgress, type ModelInfo, type PlaybackPose, type Tuning, type View } from '${name}'
 import { preloadFaceModel, startFaceTracking, TrackingFilter, parameterRule, readTrackingProfile, TRACKING_PARAMETERS, type TrackingParameter, type TrackingProfile, type ParameterRule, type FaceTracking } from '${name}/tracking'
 import { createSpeech, startLipSync, type ClipHooks, type LipSync } from '${name}/voice'
 import { BODY_LIMIT, BodyPlayer, LivLivError as FromBody, type Body } from '${name}/body'
@@ -82,6 +82,21 @@ player.act(move)
 player.setAway(true)
 player.maxPixelRatio = 1
 void [moved, code, new FromBody('http', 'x', { status: 404 }).status]
+// the feel settings: read as they play, changed live; a host of your own may carry them or not
+const feel: Readonly<Tuning> = player.tuning
+const blinkRate: number = bodyPlayer.tuning.blink
+player.setTuning({ turn: 1.2, hairFront: undefined, fringe: null })
+bodyPlayer.setTuning({ mouth: 0.8 })
+const host: Host = { use: () => () => {}, blink() {} }
+const tuned: Host = { ...host, tuning: player.tuning }
+player.use({ update(_f, h) { void h.tuning?.mouth } })
+void [feel, blinkRate, tuned]
+// @ts-expect-error a copy to read: change them with setTuning
+player.tuning.turn = 2
+// @ts-expect-error only the feel settings
+player.setTuning({ turns: 2 })
+// @ts-expect-error a setting is a number
+player.setTuning({ blink: 'fast' })
 // the types are real, not any: these must be errors
 // @ts-expect-error a switch now: setAway
 player.act('away')

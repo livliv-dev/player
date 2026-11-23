@@ -5,7 +5,7 @@
 import type { AnchorName, AttachmentAnchor } from './anchors'
 export type { AnchorName, AttachmentAnchor } from './anchors'
 import { langOf, pickLabel, readModel, type Labels, type ModelMeta } from './runtime/format'
-import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
+import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, defaultTuning, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
 import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LivLivErrorCode, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
 import { Mark } from './mark'
 import { claimCanvas } from './release'
@@ -97,6 +97,13 @@ export class Player extends PlayerBase<ModelInfo> {
   /** @internal */
   protected get feel() { return this.puppet.tuning }
   /** @internal */
+  protected get ownFeel() { return { ...defaultTuning(), ...(this.puppet.model?.tuning || {}) } }
+  /** turn or nod changed: the keyforms are measured again, once, before the next frame
+   *  @internal */
+  private retunePending = false
+  /** @internal */
+  protected retuned(keys: string[]) { if (keys.includes('turn') || keys.includes('nod')) this.retunePending = true }
+  /** @internal */
   protected seen() { return this.puppet }
 
   /** A point on the canvas (CSS px from its top left) in the model's own px, as the last frame drew it */
@@ -150,6 +157,7 @@ export class Player extends PlayerBase<ModelInfo> {
     // v4 says which mark it is; before it the text "LivLiv" meant the logo
     const kind = m.meta ? m.meta.watermark?.kind ?? 'none' : m.watermark === 'LivLiv' ? 'livliv' : m.watermark ? 'text' : 'none'
     this.mark.set(kind, m.watermark ?? null, m.meta?.watermark?.center !== false)
+    this.retunePending = false  // its keyforms were measured at its own settings
     this.neutral()
     if (!this.playing) this.resize()
     return this.info
@@ -175,6 +183,7 @@ export class Player extends PlayerBase<ModelInfo> {
   /** @internal */
   protected show(dt: number) {
     const p = this.puppet, f = this.frame, V = this.view, G = this.ground
+    if (this.retunePending) { this.retunePending = false; p.retune() }
     p.view = { x: V.x, y: V.y, s: V.zoom }
     p.focusHead = V.head
     p.fit = V.fit === 'whole' || V.fit === 'knee' ? V.fit : 'frame'

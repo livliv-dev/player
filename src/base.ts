@@ -182,6 +182,8 @@ export const factor = (v: unknown) => (typeof v === 'number' && Number.isFinite(
 /** every feel setting at its default: what a character that says nothing plays with
  *  @internal */
 export const defaultFeel = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
+/** every feel setting's name (Tuning's keys) */
+const FEEL_KEYS: readonly string[] = ['turn', 'nod', 'hair', 'hairFront', 'hairBack', 'blink', 'expr', 'mouth', 'breath', 'gaze', 'fringe']
 const FITS: readonly Fit[] = ['frame', 'whole', 'knee']
 /** the deepest a recorded pose may crouch or dip a full-body character (a share of its frame's height): live ones reach
  *  about 0.07, and a whole frame's height would fold the legs past the feet */
@@ -220,6 +222,9 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
   /** the feel settings it plays with now, live (a Player's are its puppet's)
    *  @internal */
   protected abstract get feel(): Tuning
+  /** the character's own feel settings, as it was loaded with them: what a setting set back to undefined returns to
+   *  @internal */
+  protected abstract get ownFeel(): Partial<Tuning>
   /** @internal */
   protected disposed = false
   private idler = new Idle()
@@ -317,6 +322,35 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
   /** The character's feel settings as they play now, each a factor with 1 the default (see Tuning): a Player's come from
    *  its model's `tuning`, and each load starts again from the new character's own. A frozen copy */
   get tuning(): Readonly<Tuning> { return Object.freeze({ ...this.feel }) }
+
+  /** Changes some of the character's feel settings while it plays, without loading it again (an editor's sliders): each
+   *  a factor, 0 and up (model files keep to 0..10); `undefined` or `null` puts one back to the character's own. The next
+   *  frame shows them (on a paused player, call resize()). A name that is no setting, or a value that is no number from 0
+   *  up, throws a TypeError and changes nothing. A load starts again from the new character's own settings. On a
+   *  BodyPlayer, blink, expr and mouth count (the rest are kept, for tuning to read back) */
+  setTuning(changes: Partial<Record<keyof Tuning, number | null | undefined>>): void {
+    if (!changes || typeof changes !== 'object') throw new TypeError('LivLiv: setTuning takes an object of feel settings')
+    const entries = Object.entries(changes)
+    for (const [k, v] of entries) {
+      if (!FEEL_KEYS.includes(k)) throw new TypeError(`LivLiv: setTuning: "${k}" is not a feel setting (${FEEL_KEYS.join(', ')})`)
+      if (v != null && !(typeof v === 'number' && Number.isFinite(v) && v >= 0)) throw new TypeError(`LivLiv: setTuning: ${k} must be a number from 0 up, not ${String(v)}`)
+    }
+    const T = this.feel as unknown as Record<string, number | undefined>, own = this.ownFeel as Record<string, number | undefined>
+    const changed: string[] = []
+    for (const [k, v] of entries) {
+      const before = T[k]
+      if (v != null) T[k] = v
+      else if (own[k] !== undefined) T[k] = own[k]
+      else if (k in defaultFeel()) T[k] = 1
+      else delete T[k]
+      if (!Object.is(before, T[k])) changed.push(k)
+    }
+    if (changed.length) this.retuned(changed)
+  }
+
+  /** feel settings have changed (their names): what the subclass must do for them besides reading them each frame
+   *  @internal */
+  protected retuned(_keys: string[]) {}
   // the return type is the model's own expressions: without it the declaration emitter resolves Info['expressions']
   // to the constraint ({ id: string }[]) and consumers lose `label` / `labels`
   get expressions(): Info['expressions'] { return this.info?.expressions ?? [] as Info['expressions'] }

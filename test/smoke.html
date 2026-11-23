@@ -645,6 +645,64 @@
     return out
   }
 
+  /** pixels that differ at all between two frames */
+  const differ = (a, b) => { let n = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n }
+
+  /** setTuning() while the character plays: the frames are those of the character loaded with the same settings (kf: one
+   *  with keyforms, whose keys turn and nod change), and undefined puts a setting back */
+  window.runSetTuning = async (id, kf) => {
+    const out = {}
+    const poses = [{}, { angleX: 22, angleY: 10 }, { angleX: -18, angleY: -14, angleZ: 8, eyeBallX: 1 }, { angleY: 25, bodyX: 6, breath: 1 }]
+    /** the poses drawn (still: idle off, no time passing) by a player loaded from `model`, with setTuning(set) after */
+    const draw = async (who, model, set) => {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      await p.load(await filesOf(who, model))
+      if (set) p.setTuning(set)
+      const shots = []
+      for (const P of poses) { Object.assign(p.params, P); p.resize(); shots.push(pixels()); Object.assign(p.params, Object.fromEntries(Object.keys(P).map((k) => [k, 0]))) }
+      const tuning = { ...p.tuning }, keys = p.puppet.keys.map((k) => +k.scale.toFixed(6)).join()
+      p.dispose()
+      return { shots, tuning, keys }
+    }
+    const cmp = (a, b) => a.shots.map((d, i) => differ(d, b.shots[i]))
+    // a character without keyforms: every setting the renderer reads in a still frame
+    const m = bare(await json(id))
+    const feel = { turn: 1.4, nod: 0.6, gaze: 0.5, fringe: 1.6, breath: 0.2, hair_front: 1.7 }
+    const asLoaded = await draw(id, { ...m, tuning: { ...m.tuning, ...feel } })
+    const asSet = await draw(id, m, { turn: 1.4, nod: 0.6, gaze: 0.5, fringe: 1.6, breath: 0.2, hairFront: 1.7 })
+    const plain = await draw(id, m)
+    out.plain = { set: cmp(asLoaded, asSet), moved: cmp(plain, asSet) }
+    // keyforms: the keys measured again for turn and nod; and back again
+    const k = bare(await json(kf))
+    const turned = { ...k, tuning: { ...k.tuning, turn: 1, nod: 1.3 } }
+    const kLoaded = await draw(kf, turned), kSet = await draw(kf, k, { turn: 1, nod: 1.3 })
+    const kOwn = await draw(kf, k)
+    out.keyforms = { set: cmp(kLoaded, kSet), moved: cmp(kOwn, kSet), keys: [kLoaded.keys, kSet.keys, kOwn.keys] }
+    {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      await p.load(await filesOf(kf, k))
+      p.resize()
+      let t0 = performance.now()
+      p.puppet.update(0); p.puppet.render()
+      const frame = performance.now() - t0
+      p.setTuning({ turn: 1, nod: 1.3 })
+      t0 = performance.now()
+      p.resize()
+      out.keyforms.ms = [Math.round(frame), Math.round(performance.now() - t0)]
+      p.setTuning({ turn: undefined, nod: null })
+      const shots = []
+      for (const P of poses) { Object.assign(p.params, P); p.resize(); shots.push(pixels()); Object.assign(p.params, Object.fromEntries(Object.keys(P).map((q) => [q, 0]))) }
+      out.keyforms.back = cmp(kOwn, { shots })
+      out.keyforms.tuning = [p.tuning.turn, p.tuning.nod, k.tuning?.turn ?? 1, k.tuning?.nod ?? 1]
+      // and the next character starts from its own settings
+      p.setTuning({ turn: 2, mouth: 0.3 })
+      await p.load(await filesOf(id, m))
+      out.next = { ...p.tuning }
+      p.dispose()
+    }
+    return out
+  }
+
   /** hostile packages: each must be refused (or, for broken keyforms, played on the rig alone), the model before kept */
   window.runHostile = async (id, kfId) => {
     const player = new Player(canvas, { autoplay: false, followPointer: false })
