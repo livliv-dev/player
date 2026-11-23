@@ -135,6 +135,7 @@ Paths are relative to `model.json`, use `/`, and contain no `..`, scheme or driv
 | `turn`, `nod` | how far the head turns and tilts (and the body with it), and how far it nods on top of that |
 | `hair`, `hair_front`, `hair_back` | how freely the hair swings; `hair_front` (the bangs) and `hair_back` (long hair and the swinging pieces) each take the place of `hair` where set |
 | `hair_sway` (4.2) | how far long hair swings sideways below the shoulders as the head and body move, times `hair_back` (or `hair`); 0 turns it off |
+| `hair_rest` (4.2) | how much long hair lying on the body below the neck goes with the body instead of the head: the share of the head's motion it gives up there, 0..1 (more counts as 1); 0 turns it off, a missing one is 1, not the usual default of the others |
 | `breath` | breathing |
 | `blink` | how often the idle motion blinks |
 | `expr`, `mouth` | how readily face tracking reads a smile; how far face tracking and live lip sync open the mouth |
@@ -279,7 +280,7 @@ Changes:
   `full_body` (§5); `rig.lattice` (Appendix C). LivLiv Player reads them from 0.5; 0.4 and earlier refuse a model that
   lists the feature.
 - **4.2**: optional `tuning.gaze` and `tuning.fringe` (§5), which LivLiv Player 0.5 already read, and
-  `tuning.hair_sway` (from Player 0.6). A reader without them plays the defaults.
+  `tuning.hair_sway` and `tuning.hair_rest` (from Player 0.6). A reader without them plays the defaults.
 
 ## Appendix A: standard expression ids (4.0)
 

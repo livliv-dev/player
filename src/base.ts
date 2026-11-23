@@ -186,7 +186,7 @@ const finite = (v: unknown, fallback: number) => (typeof v === 'number' && Numbe
  *  @internal */
 export const defaultFeel = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
 /** every feel setting's name (Tuning's keys) */
-const FEEL_KEYS: readonly string[] = ['turn', 'nod', 'hair', 'hairFront', 'hairBack', 'hairSway', 'blink', 'expr', 'mouth', 'breath', 'gaze', 'fringe']
+const FEEL_KEYS: readonly string[] = ['turn', 'nod', 'hair', 'hairFront', 'hairBack', 'hairSway', 'hairRest', 'blink', 'expr', 'mouth', 'breath', 'gaze', 'fringe']
 const FITS: readonly Fit[] = ['frame', 'whole', 'knee']
 /** the deepest a recorded pose may crouch or dip a full-body character (a share of its frame's height): live ones reach
  *  about 0.07, and a whole frame's height would fold the legs past the feet */
@@ -228,6 +228,9 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
   /** the character's own feel settings, as it was loaded with them: what a setting set back to undefined returns to
    *  @internal */
   protected abstract get ownFeel(): Partial<Tuning>
+  /** how long the idle motion holds each blink shut (s): a Player's follows its puppet's blink hand-over; 0: as before
+   *  @internal */
+  protected get blinkHold() { return 0 }
   /** @internal */
   protected disposed = false
   private idler = new Idle()
@@ -584,6 +587,7 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     this.idler.shown(P)
     Object.assign(P, this.params)
     this.idler.lv.blinkRate = factor(this.feel.blink)
+    this.idler.lv.blinkHold = this.blinkHold
     if (this.idle && this.idleGap) {  // from the page's values, kept in range (a NaN would stay in the idle's springs)
       const from = { ...P }
       inRange(from)

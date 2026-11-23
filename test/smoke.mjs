@@ -279,12 +279,12 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${id} loaded again while it moves: continueMotion changes ${(r.go.step * 100).toFixed(1)} % of the frame (a frame's own motion up to ${(r.go.most * 100).toFixed(1)} %), the expression kept; at rest ${(r.rest.step * 100).toFixed(1)} %`)
   }
 
-  // a model crafted to stall the long hair's setup (see runCrafted)
+  // the long hair's setup for any face size (see runWideFace)
   {
-    const r = await page.evaluate((a) => window.runCrafted(a), ids.find((i) => i === 'k01') ?? ids[0])
-    const ok = !r.crafted.error && !r.plain.error && r.crafted.ms < r.plain.ms + 1000
+    const r = await page.evaluate((a) => window.runWideFace(a), ids.find((i) => i === 'k01') ?? ids[0])
+    const ok = !r.wide.error && !r.plain.error && r.wide.ms < r.plain.ms + 1000
     if (!ok) failed++
-    console.log(`${ok ? 'ok  ' : 'FAIL'} a model crafted to stall the long hair's setup (a face 1 000 000 px wide, 2048 x 2048 cells of hair) loads in ${r.crafted.ms} ms, the same model with its own face in ${r.plain.ms} ms${r.crafted.error ?? ''}`)
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a face 1 000 000 px wide on 2048 x 2048 cells of hair loads in ${r.wide.ms} ms, the same model with its own face in ${r.plain.ms} ms${r.wide.error ?? ''}`)
   }
 
   // long hair's swing (see runSway), on a character with long hair
@@ -294,6 +294,15 @@ try {
     const ok = r.same.every((n) => n === 0) && r.swings.some((n) => n > 0)
     if (!ok) failed++
     console.log(`${ok ? 'ok  ' : 'FAIL'} long hair swings (${id}): ${r.swings.join('/')} px move with the swing; hair_sway 0 in the file and setTuning({ hairSway: 0 }) differ by ${r.same.join('/')} px`)
+  }
+
+  // long hair resting on the body (see runRest), on a character with long hair over its shoulders, and on one whose turns
+  // come from keyforms (measured with the setting on: setTuning has them measured again)
+  for (const id of new Set([ids.find((i) => i === 'k01') ?? ids[0], ids.find((i) => i === 'd03ft') ?? kfId])) {
+    const r = await page.evaluate((a) => window.runRest(a), id)
+    const ok = r.still.every((n) => n === 0) && r.same.every((n) => n === 0) && r.rests.some((n) => n > 0)
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} long hair rests on the body (${id}): ${r.rests.join('/')} px move with it; hair_rest 0 in the file and setTuning({ hairRest: 0 }) differ by ${r.same.join('/')} px; a still frame by ${r.still.join('/')} px`)
   }
 
   // a model that breaks while it is built (see runKeep): the character before stays, to the pixel

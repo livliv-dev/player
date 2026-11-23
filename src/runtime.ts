@@ -6,7 +6,7 @@
 
 // the renderer
 export {
-  Puppet, IdleDriver, defaultParams, PARAM_RANGES, smooth, defaultRig, defaultTuning, keyformsFit, lidCurveFits,
+  Puppet, IdleDriver, defaultParams, PARAM_RANGES, smooth, eyeFade, BLINK_HOLD, blinkOpen, blinkOver, defaultRig, defaultTuning, keyformsFit, lidCurveFits,
   loadBlob, loadImage, packUrl, FRINGE_MAX, fringeScale, fringeTop,
 } from './runtime/puppet'
 export type { Params, Tuning, ModelDef, LayerDef, KeyformFile, Rig, ChainDef, BrowLine, MeshView, LayerHit } from './runtime/puppet'
