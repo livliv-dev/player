@@ -34,7 +34,7 @@
 
 我们希望，创造角色这件事能属于每一个人。
 
-我们正在开源 AI 角色创作工具链、[播放器与播放协议](https://github.com/livliv-dev/player)，还有[一方舞台，让你创作的角色与大家见面](https://github.com/livliv-dev/stage)。
+我们正在开源 AI 角色创作工具链、[播放器与播放协议](https://github.com/livliv-dev/player)，还有[一方舞台，让你创作的角色与大家见面](https://github.com/livliv-dev/vtuber-stage)。
 
 欢迎来 [Discord](https://discord.gg/ac5qF36T2H) 聊聊角色创作，也可以在 [X（Twitter）](https://x.com/livliv_ai) 上关注我们。
 

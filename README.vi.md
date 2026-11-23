@@ -34,7 +34,7 @@
 Chúng tôi mong ai cũng có thể tạo nên nhân vật từ trí tưởng tượng của chính mình.
 
 Chúng tôi đang mở mã nguồn cho bộ công cụ tạo nhân vật bằng AI, [trình phát và giao thức phát đi kèm](https://github.com/livliv-dev/player),
-cùng [một sân khấu để những nhân vật ấy ra mắt khán giả](https://github.com/livliv-dev/stage).
+cùng [một sân khấu để những nhân vật ấy ra mắt khán giả](https://github.com/livliv-dev/vtuber-stage).
 
 Ghé [Discord](https://discord.gg/ac5qF36T2H) trò chuyện với chúng tôi và theo dõi LivLiv trên [X (Twitter)](https://x.com/livliv_ai) nhé.
 
