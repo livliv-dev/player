@@ -240,8 +240,9 @@ try {
     const r = await page.evaluate((id) => window.runTuning(id), ids.find((i) => i === 'k01') ?? ids[0])
     const t = r.read
     const ok = t.blink === 2.5 && t.expr === 0.5 && t.mouth === 1.5 && t.hairFront === 1.2 && t.turn === 1 && r.frozen && r.still === 0
+      && r.playing.blinkRate === 2.5 && r.playing.mouth === 1.5 && r.playing.expr === 0.5
     if (!ok) failed++
-    console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame`)
+    console.log(`${ok ? 'ok  ' : 'FAIL'} the feel settings from model.json: ${JSON.stringify(t)}; blink, expr, mouth change ${(r.still * 100).toFixed(2)} % of a still frame and play as the file says (blink rate ${r.playing.blinkRate}, drivers read mouth ${r.playing.mouth}, expr ${r.playing.expr})`)
     const kf = ids.find((id) => JSON.parse(readFileSync(join(chars, id, 'model.json'), 'utf8')).files?.keyforms)
     const s = await page.evaluate(([a, b]) => window.runSetTuning(a, b), [ids.find((i) => i === 'k01') ?? ids[0], kf ?? ids[0]])
     const zero = (xs) => xs.every((n) => n === 0), some = (xs) => xs.some((n) => n > 0)
@@ -268,6 +269,14 @@ try {
     const ok = r.go.step <= r.go.most && r.go.expr && r.rest.step > r.rest.most && !r.rest.expr
     if (!ok) failed++
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${id} loaded again while it moves: continueMotion changes ${(r.go.step * 100).toFixed(1)} % of the frame (a frame's own motion up to ${(r.go.most * 100).toFixed(1)} %), the expression kept; at rest ${(r.rest.step * 100).toFixed(1)} %`)
+  }
+
+  // a model crafted to stall the long hair's setup (see runCrafted)
+  {
+    const r = await page.evaluate((a) => window.runCrafted(a), ids.find((i) => i === 'k01') ?? ids[0])
+    const ok = !r.crafted.error && !r.plain.error && r.crafted.ms < r.plain.ms + 1000
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a model crafted to stall the long hair's setup (a face 1 000 000 px wide, 2048 x 2048 cells of hair) loads in ${r.crafted.ms} ms, the same model with its own face in ${r.plain.ms} ms${r.crafted.error ?? ''}`)
   }
 
   // long hair's swing (see runSway), on a character with long hair

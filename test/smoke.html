@@ -639,8 +639,12 @@
     await p.load(await filesOf(id, own))
     out.read = { ...p.tuning }
     out.frozen = Object.isFrozen(p.tuning)
+    // the file's own settings are what plays: the idle motion's blink rate, and what drivers (lip sync, face tracking) read
+    let seen = null
+    p.use({ update(_f, host) { seen = host.tuning } })
     p.resize()
     out.still = changed(b.d, pixels())
+    out.playing = { blinkRate: p.idler.lv.blinkRate, mouth: seen?.mouth, expr: seen?.expr }
     p.dispose()
     return out
   }
@@ -845,6 +849,36 @@
     }
     Math.random = real
     return out
+  }
+
+  /** a model crafted to stall the long hair's setup: a face 1 000 000 px wide (the bridge across gaps in the hair is a share
+   *  of it), the finest lattice, a 4096 px canvas and two hair layers, opaque, along its far edges, so that the hair's lattice spans
+   *  2048 x 2048 cells, half of them hair (within the limits on layers and vertices). It must load in about the time of the same model
+   *  with its own face. Each on a canvas of its own, the crafted one first: a load that came after another waits for that
+   *  one's drawing to finish on the GPU */
+  window.runCrafted = async (id) => {
+    const m = bare(await json(id)), S = 4096
+    // two hair layers alone, drawn with the body's (mostly opaque) picture, as large as the limit on vertices lets them be
+    const body = m.layers.find((L) => L.id === 'body')
+    const strip = (y, n) => ({ ...body, id: `x_hair_${n}`, group: 'hair_back', role: undefined, x: -S, y, w: 3 * S - 1, h: 2900 })
+    const layers = [strip(-S, 'a'), strip(2 * S - 2901, 'b')]
+    const big = { ...m, canvas: [S, S], rig: { ...m.rig, lattice: 6 }, layers, expressions: [] }
+    const crafted = { ...big, expressions: [], anchors: { ...big.anchors, face: [S / 2 - 5e5, m.anchors.face[1], S / 2 + 5e5, m.anchors.face[3]] } }
+    const time = async (model) => {
+      const c = document.createElement('canvas')
+      c.style.cssText = 'width: 320px; height: 400px'
+      document.body.append(c)
+      const p = new Player(c, { autoplay: true, followPointer: false })
+      const files = await filesOf(id, model)
+      const t0 = performance.now()
+      let error = null
+      await p.load(files).catch((e) => { error = e.message })
+      const ms = performance.now() - t0
+      p.dispose({ release: true }); c.remove()
+      return { ms: Math.round(ms), error }
+    }
+    const crafty = await time(crafted)
+    return { crafted: crafty, plain: await time(big) }
   }
 
   /** hostile packages: each must be refused (or, for broken keyforms, played on the rig alone), the model before kept */

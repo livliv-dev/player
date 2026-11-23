@@ -326,10 +326,17 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
 
   /** The character's feel settings as they play now, each a factor with 1 the default (see Tuning): a Player's come from
    *  its model's `tuning`, and each load starts again from the new character's own. A frozen copy */
-  get tuning(): Readonly<Tuning> { return Object.freeze({ ...this.feel }) }
+  get tuning(): Readonly<Tuning> {
+    const f = this.feel
+    if (this.feelView?.of !== f) this.feelView = { of: f, view: Object.freeze({ ...f }) }
+    return this.feelView.view
+  }
+  /** the frozen copy `tuning` gives, until the settings change (setTuning) or are replaced (a load) */
+  private feelView: { of: Tuning; view: Readonly<Tuning> } | null = null
 
   /** Changes some of the character's feel settings while it plays, without loading it again (an editor's sliders): each
-   *  a factor, 0 and up (model files keep to 0..10); `undefined` or `null` puts one back to the character's own. The next
+   *  a factor from 0 to 10, as in a model file (above 10 counts as 10); `undefined` or `null` puts one back to the
+   *  character's own. The next
    *  frame shows them (on a paused player, call resize()). A name that is no setting, or a value that is no number from 0
    *  up, throws a TypeError and changes nothing. A load starts again from the new character's own settings. On a
    *  BodyPlayer, blink, expr and mouth count (the rest are kept, for tuning to read back) */
@@ -344,7 +351,7 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     const changed: string[] = [], blinkWas = factor(T.blink)
     for (const [k, v] of entries) {
       const before = T[k]
-      if (v != null) T[k] = v
+      if (v != null) T[k] = Math.min(10, v)
       else if (own[k] !== undefined) T[k] = own[k]
       else if (k in defaultFeel()) T[k] = 1
       else delete T[k]
@@ -354,7 +361,7 @@ export abstract class PlayerBase<Info extends { expressions: { id: string }[] }>
     // wait would hold a faster one back for seconds)
     const lv = this.idler.lv, now = this.clock, rate = (b: number) => Math.max(0.2, b)
     if (changed.includes('blink') && lv.blinkT < 0 && lv.nextBlink > now) lv.nextBlink = now + (lv.nextBlink - now) * rate(blinkWas) / rate(factor(T.blink))
-    if (changed.length) this.retuned(changed)
+    if (changed.length) { this.feelView = null; this.retuned(changed) }
   }
 
   /** feel settings have changed (their names): what the subclass must do for them besides reading them each frame

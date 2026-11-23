@@ -19,8 +19,9 @@ export async function isZip(b: Blob): Promise<boolean> {
   return h.length === 4 && h[0] === 0x50 && h[1] === 0x4b && ((h[2] === 3 && h[3] === 4) || (h[2] === 5 && h[3] === 6))
 }
 
-/** A path that would leave its package: absolute, on a drive, or with a `.` or `..` segment (`/` as the separator). The
- *  one rule for what a package may hold: unzip refuses a package holding one, and so does modelFiles() */
+/** A path that would leave its package: absolute, on a drive, or with a `.` or `..` segment (`/` as the separator). Unzip
+ *  refuses a package holding one, and so does modelFiles(), which also refuses names a file cannot safely have when a
+ *  tool writes it out (control characters, `:`) */
 export const leavesPackage = (path: string) => path.startsWith('/') || /^[A-Za-z]:/.test(path) || path.split('/').some((s) => s === '..' || s === '.')
 
 /** the package's files by path (no folders, no __MACOSX / ._ / .DS_Store litter). Throws on what it cannot or must

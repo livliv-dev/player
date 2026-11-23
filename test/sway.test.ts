@@ -133,3 +133,50 @@ describe('the hair that hangs from the head', () => {
     assert.equal(hangsAt({ ox: -2, oy: -2, w: 2, h: 2, r: Uint8Array.from([1, 1, 1, 1]) }, 5, 5), false)
   })
 })
+
+describe('an untrusted model cannot stall it', () => {
+  /** the bridging as first written: each set cell widened over its window, one cell at a time */
+  function reference(cells: Uint8Array, w: number, h: number, seed: number, bridge: number) {
+    const a = new Uint8Array(w * h), d = new Uint8Array(w * h), out = new Uint8Array(w * h), stack: number[] = []
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (cells[y * w + x]) for (let k = Math.max(0, x - bridge); k <= Math.min(w - 1, x + bridge); k++) a[y * w + k] = 1
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (a[y * w + x]) for (let k = Math.max(0, y - bridge); k <= Math.min(h - 1, y + bridge); k++) d[k * w + x] = 1
+    for (let i = 0; i < Math.min(h, Math.max(0, seed)) * w; i++) if (cells[i]) { out[i] = 1; stack.push(i) }
+    while (stack.length) {
+      const i = stack.pop()!, x = i % w, y = (i - x) / w
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) if (j >= 0 && d[j] && !out[j]) { out[j] = 1; stack.push(j) }
+    }
+    return out
+  }
+  it('bridges exactly as the cell-by-cell way did, on random hair, every bridge', () => {
+    let seed = 3
+    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+    for (let t = 0; t < 60; t++) {
+      const w = 1 + Math.floor(rand() * 40), h = 1 + Math.floor(rand() * 40), fill = rand() * 0.3, b = Math.floor(rand() * 12)
+      const c = Uint8Array.from({ length: w * h }, () => (rand() < fill ? 1 : 0))
+      const s = Math.floor(rand() * h)
+      assert.deepEqual(hangingCells(c, w, h, s, b), reference(c, w, h, s, b), `${w} x ${h}, bridge ${b}`)
+    }
+  })
+  it('takes no longer for a bridge a crafted face width makes huge: 2048 x 2048 cells, bridge 20 000', () => {
+    const w = 2048, h = 2048, c = new Uint8Array(w * h)
+    for (let i = 0; i < c.length; i += 97) c[i] = 1
+    const t0 = performance.now()
+    hangingCells(c, w, h, 300, 20000)
+    const ms = performance.now() - t0
+    assert.ok(ms < 1000, `${ms.toFixed(0)} ms`)
+  })
+  it('a step with a number that is none is skipped, and the swing never leaves its limit, whatever the step', () => {
+    const sw = swayState()
+    for (let i = 0; i < 60; i++) stepSway(sw, 40 * Math.sin(i / 5), 1 / 60, 1, FW)
+    const was = { ...sw }
+    stepSway(sw, NaN, 1 / 60, 1, FW); stepSway(sw, 10, NaN, 1, FW); stepSway(sw, 10, 1 / 60, Infinity, FW); stepSway(sw, 10, 1 / 60, 1, NaN)
+    assert.deepEqual(sw, was, 'nothing taken in')
+    Object.assign(sw, { x: NaN })
+    stepSway(sw, 10, 1 / 60, 1, FW)
+    assert.ok([sw.x, sw.vx, sw.px, sw.pvx, sw.ax].every(Number.isFinite), 'a state gone bad starts again')
+    for (const dt of [0.5, 2, 30]) {
+      const s = swayState()
+      for (let i = 0; i < 20; i++) { stepSway(s, i % 2 ? 300 : -300, dt, 2, FW); assert.ok(Math.abs(s.x) <= SWAY.limit * FW * 2 + 1e-9 && Number.isFinite(s.x), `dt ${dt}: ${s.x}`) }
+    }
+  })
+})

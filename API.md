@@ -52,8 +52,9 @@ load, as they are ([FORMAT-v3.md](FORMAT-v3.md)).
 with a project or package it again. From a URL it reads `model.json` as `load()` does (a model `load()` refuses is
 refused) and fetches every image and file it names, rejecting if one does not come; a package or files you pass come
 back unpacked, as they are. `model.json` is unchanged, with its licence and its mark, and the limits are `load()`'s.
-It takes the file names `load()` takes (`#`, `?` and `:` included) and refuses, as opening a `.livliv` does, a name
-that would leave the package: absolute, on a drive, or with a `.` or `..` segment.
+Its paths are safe to write out as files: it refuses a name that would leave the package (absolute, on a drive, or with a
+`.` or `..` segment), as opening a `.livliv` does, and also, more strictly than `load()`, one with a control character or
+`:` (on Windows, `a.webp:x` names a stream inside `a.webp`). `#` and `?` are names like any other.
 
 `packageModelJson(paths)` says which `model.json` among a package's file paths is its own: the shortest one (the first
 of those as long). It is the one `load()` plays, for a tool that reads the files before handing them to the player.
@@ -217,7 +218,8 @@ player.tuning.turn                            // 1 (if the model says nothing)
 | `expr` | `expr` | how readily face tracking reads a smile |
 | `mouth` | `mouth` | how far face tracking and live lip sync open the mouth |
 
-A value is a number from 0 up (model files keep to 0..10); `undefined` or `null` puts a setting back to the model's own.
+A value is a number from 0 to 10, as in a model file (above 10 counts as 10); `undefined` or `null` puts a setting back to
+the model's own.
 A name that is no setting, or a value that is no number from 0 up, throws a `TypeError` and changes nothing. Each
 `load()` starts again from the new character's own settings. At 1 (or not set) a setting changes nothing: a model
 without `tuning` plays as it always has. Changing `turn`, `nod` or `fringe` on a model with keyforms measures its key

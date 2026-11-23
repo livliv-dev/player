@@ -3,8 +3,10 @@
 ## 0.6.0
 
 Long hair that swings and rests on the shoulders, feel settings an editor can change while the character plays, an
-advanced entry for code that runs the renderer itself, and VRM files from Blender that play. A page written for 0.5 needs
-no change; what it will see is long hair swinging, and chest hair moving less with the head (below).
+advanced entry for code that runs the renderer itself, and VRM files from Blender that play. A page written for 0.5
+needs no change. What it will see change, all on purpose (below): long hair swings, and long hair lying on the body
+moves less with the head; a model whose file sets `tuning.blink`, `expr` or `mouth` plays them; and the idle motion
+turned back on eases in instead of jumping.
 
 ### New
 
@@ -15,7 +17,9 @@ no change; what it will see is long hair swinging, and chest hair moving less wi
   loaded with those settings. See [API.md](API.md#feel-settings-tuning-and-settuning).
 - **`blink`, `expr` and `mouth` from the model's `tuning` count**, as on livliv.ai: how often the idle motion blinks,
   how readily face tracking reads a smile, how far face tracking and live lip sync open the mouth (lip sync's own
-  `gain` multiplies with it). A `Host` may carry `tuning` (optional): drivers read it there.
+  `gain` multiplies with it). A `Host` may carry `tuning` (optional): drivers read it there. **A model whose file sets
+  them to other than 1 plays differently from 0.5** (`{ "blink": 2, "mouth": 0.5 }` blinks twice as often and opens its
+  mouth half as far); the featured characters set them to 1 or not at all.
 - **`load(source, { continueMotion: true })`**: the same character loaded again (an editor's change) goes on moving
   from its last frame (its springs, the body's lag, the long hair's swing, the expression showing) instead of starting
   again at rest.
@@ -48,8 +52,9 @@ no change; what it will see is long hair swinging, and chest hair moving less wi
   circle are left out with a warning instead of refusing the file; a file that cannot play says why in the exporter's
   terms (bones the humanoid lacks, no meta, a VRM version this player does not read). A `.vrm` URL given to a `Player`
   says to use a `BodyPlayer`.
-- **`modelFiles()` takes the names `load()` takes** (`#`, `?` and `:` included) and refuses, as opening a `.livliv`
-  does, only a name that would leave the package. Its errors name the file.
+- **`modelFiles()` takes names with `#` and `?`**, which it refused before, as `load()` takes them. Its paths stay safe
+  to write out: it refuses a name that would leave the package (as opening a `.livliv` does), and one with a control
+  character or `:`, now from a package too. Its errors name the file.
 - **A model's first frame draws everything once, out of sight** (Player only): every layer's pictures, the eyes'
   masks, the stencil. Some browsers put off a texture's upload until it is first drawn, so the first blink, glance or
   expression after a load could stall a frame. The renderer underneath has it as a switch (`Puppet.prewarm`), off.
