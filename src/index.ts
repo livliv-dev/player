@@ -5,7 +5,7 @@
 import type { AnchorName, AttachmentAnchor } from './anchors'
 export type { AnchorName, AttachmentAnchor } from './anchors'
 import { langOf, pickLabel, readModel, type Labels, type ModelMeta } from './runtime/format'
-import { FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, defaultTuning, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
+import { BLINK_HOLD, FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, defaultTuning, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
 import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LivLivErrorCode, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
 import { packageModelJson } from './files'
 import { Mark } from './mark'
@@ -100,6 +100,8 @@ export class Player extends PlayerBase<ModelInfo> {
   protected get feel() { return this.puppet.tuning }
   /** @internal */
   protected get ownFeel() { return { ...defaultTuning(), ...(this.puppet.model?.tuning || {}) } }
+  /** @internal */
+  protected get blinkHold() { return this.puppet.blinkHandover ? BLINK_HOLD : 0 }
   /** turn, nod, fringe or hairRest changed (the key poses are measured in them): the keyforms are measured again, once,
    *  before the next frame
    *  @internal */
