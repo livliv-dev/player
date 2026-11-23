@@ -382,6 +382,10 @@ export interface Hang { ox: number; oy: number; w: number; h: number; r: Uint8Ar
 /** one step of the swing: the pivot's x this step (model px), the strength (0 holds it still at 0), the face width (its limit). The
  *  pivot's acceleration is low-passed (~40 ms) so a tracked face's jitter does not shake it */
 export function stepSway(sw: SwayState, px: number, dt: number, strength: number, fw: number) {
+  // a number that is none (a NaN from anywhere) would stay in the pendulum for good: such a step is skipped, and a state
+  // gone bad starts again at rest
+  if (!Number.isFinite(px) || !Number.isFinite(dt) || !Number.isFinite(strength) || !Number.isFinite(fw)) return
+  if (![sw.x, sw.vx, sw.px, sw.pvx, sw.ax].every(Number.isFinite)) Object.assign(sw, swayState())
   const inv = 1 / Math.max(dt, 1e-4), ks = Math.min(1, dt * 25)
   if (!sw.started) Object.assign(sw, { px, pvx: 0, ax: 0, started: true })
   const vx = sw.pvx + ((px - sw.px) * inv - sw.pvx) * ks
@@ -404,18 +408,33 @@ export function swayWeight(y: number, top: number, len: number, f: number, cover
  *  from those in the first `seed` rows (above the neck), across gaps of up to 2 x `bridge` cells (a hair tie, a ribbon the cut took
  *  out of a twin tail). What stays apart is a scrap of the clothes or the body that the cut left in a hair layer */
 export function hangingCells(cells: Uint8Array, w: number, h: number, seed: number, bridge: number) {
-  const a = new Uint8Array(w * h), d = new Uint8Array(w * h), out = new Uint8Array(w * h), stack: number[] = []
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (cells[y * w + x]) for (let k = Math.max(0, x - bridge); k <= Math.min(w - 1, x + bridge); k++) a[y * w + k] = 1
-  }
-  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
-    if (a[y * w + x]) for (let k = Math.max(0, y - bridge); k <= Math.min(h - 1, y + bridge); k++) d[k * w + x] = 1
-  }
+  const out = new Uint8Array(w * h), stack: number[] = []
+  // the gaps bridged: each row widened, then each column, by a running count over the window (as long whatever the
+  // bridge: an untrusted model's face width sets it)
+  const b = Math.max(0, Math.floor(bridge)), a = widen(cells, w, h, b, 1, w), d = widen(a, h, w, b, w, 1)
   for (let i = 0; i < Math.min(h, Math.max(0, seed)) * w; i++) if (cells[i]) { out[i] = 1; stack.push(i) }
   while (stack.length) {
     const i = stack.pop()!, x = i % w, y = (i - x) / w
     for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
       if (j >= 0 && d[j] && !out[j]) { out[j] = 1; stack.push(j) }
+    }
+  }
+  return out
+}
+
+/** each cell set where a cell within `b` of it along a line is: `n` lines of `len` cells, `step` apart along a line and
+ *  `across` apart between lines (rows: 1 and w; columns: w and 1). One pass per line, a running count over the window */
+function widen(src: Uint8Array, len: number, n: number, b: number, step: number, across: number) {
+  const out = new Uint8Array(src.length)
+  for (let l = 0; l < n; l++) {
+    const o = l * across
+    let count = 0
+    for (let k = 0; k <= Math.min(len - 1, b); k++) count += src[o + k * step]
+    for (let k = 0; k < len; k++) {
+      if (count) out[o + k * step] = 1
+      const add = k + b + 1, drop = k - b
+      if (add < len) count += src[o + add * step]
+      if (drop >= 0) count -= src[o + drop * step]
     }
   }
   return out
@@ -2491,7 +2510,9 @@ function hairHangOf(model: ModelDef, imgs: LayerImages[], fw: number): Hang | un
   } catch {
     return undefined
   }
-  const r = hangingCells(cells, w, h, Math.floor(model.anchors.neck_y / cell) - oy, Math.max(1, Math.round((SWAY.bridge * fw) / cell)))
+  // the face no wider than the canvas, the bridge no more than 64 cells: an untrusted model's numbers set them
+  const face = Math.min(Math.max(0, fw), model.canvas[0])
+  const r = hangingCells(cells, w, h, Math.floor(model.anchors.neck_y / cell) - oy, Math.min(64, Math.max(1, Math.round((SWAY.bridge * face) / cell))))
   return { ox, oy, w, h, r }
 }
 

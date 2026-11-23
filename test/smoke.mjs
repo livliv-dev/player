@@ -270,6 +270,14 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${id} loaded again while it moves: continueMotion changes ${(r.go.step * 100).toFixed(1)} % of the frame (a frame's own motion up to ${(r.go.most * 100).toFixed(1)} %), the expression kept; at rest ${(r.rest.step * 100).toFixed(1)} %`)
   }
 
+  // a model crafted to stall the long hair's setup (see runCrafted)
+  {
+    const r = await page.evaluate((a) => window.runCrafted(a), ids.find((i) => i === 'k01') ?? ids[0])
+    const ok = !r.crafted.error && !r.plain.error && r.crafted.ms < r.plain.ms + 1000
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} a model crafted to stall the long hair's setup (a face 1 000 000 px wide, 2048 x 2048 cells of hair) loads in ${r.crafted.ms} ms, the same model with its own face in ${r.plain.ms} ms${r.crafted.error ?? ''}`)
+  }
+
   // long hair's swing (see runSway), on a character with long hair
   {
     const id = ids.find((i) => i === 'f05') ?? ids[0]
