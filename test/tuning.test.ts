@@ -173,6 +173,20 @@ describe('feel settings the player reads', () => {
     p.dispose()
   })
 
+  it('setTuning takes parts (the soft parts\' motion), checked as every other setting', async (t) => {
+    page(t)
+    const p = new BodyPlayer(canvas(), body(), { autoplay: false })
+    await p.load(new Map([['m', new Blob(['x'])]]))
+    p.setTuning({ parts: 0 })
+    assert.equal(p.tuning.parts, 0)
+    p.setTuning({ parts: 40 })
+    assert.equal(p.tuning.parts, 10, 'above 10 counts as 10 here; the renderer plays at most 2')
+    assert.throws(() => p.setTuning({ parts: -1 }), TypeError)
+    p.setTuning({ parts: undefined })
+    assert.equal('parts' in p.tuning, false, 'back to the character\'s own: none, 1')
+    p.dispose()
+  })
+
   it('a body player\'s feel settings start at 1, and its tuning is a frozen copy', async (t) => {
     page(t)
     const p = new BodyPlayer(canvas(), body(), { autoplay: false })

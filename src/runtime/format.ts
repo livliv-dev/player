@@ -42,6 +42,11 @@ export const LIMITS = {
   /** a layer's mesh covers its box on one lattice (latticeCell), whatever its image: the vertices of all the boxes, and of
    *  the layers bent by chains times how many bend them. The heaviest of 111 models here: 46 000 and 40 000 */
   vertices: 2 ** 21, skinned: 2 ** 20,
+  /** rig.parts (parts.ts readParts): entries in the list, points of a spine, ears played. A part's field is weighed at
+   *  load for the lattice points its box could hold (counted as for `vertices`): at most partVertices of them for all
+   *  the parts, and partWork pairs of such a point and a segment of its part's spine; the parts past either are not
+   *  played. Real ears take up to about 13 000 points and 40 000 pairs */
+  parts: 32, partPoints: 16, ears: 8, partVertices: 2 ** 18, partWork: 2 ** 22,
 }
 /** an error a player can tell apart by its `code` (the SDK's LivLivError); livliv.ai reads only the words */
 export const coded = (code: string, message: string) => Object.assign(new Error(message), { code })

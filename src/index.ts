@@ -5,7 +5,7 @@
 import type { AnchorName, AttachmentAnchor } from './anchors'
 export type { AnchorName, AttachmentAnchor } from './anchors'
 import { langOf, pickLabel, readModel, type Labels, type ModelMeta } from './runtime/format'
-import { BLINK_HOLD, FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, defaultTuning, loadBlob, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
+import { BLINK_HOLD, FORMAT, FORMAT_VERSION, LEGACY_FORMAT, PARAM_RANGES, Puppet, defaultParams, loadBlob, ownTuning, type KeyformFile, type ModelDef, type Params, type Tuning } from './runtime/puppet'
 import { LivLivError, PlayerBase, aborted, contextGone, readBody, type LivLivErrorCode, type LoadJob, type LoadOptions, type PlayerOptions } from './base'
 import { packageModelJson } from './files'
 import { Mark } from './mark'
@@ -44,6 +44,10 @@ export interface ModelInfo {
   watermark: string | null
   /** v4 packages: who made it (author), the terms it comes under (license), what wrote it and when; null before v4 */
   meta: ModelMeta | null
+  /** the soft parts this player plays (the model's `rig.parts`, format 4.3: an upright animal ear the first kind), empty
+   *  when none; `tuning.parts` scales their motion. Players before 0.7 do not set it, so a page that runs on several
+   *  versions can ask it before offering that setting */
+  parts?: { id: string; kind: string }[]
 }
 
 /** the build's smile on a model whose list was never written (packages from before 2026-10) */
@@ -104,7 +108,7 @@ export class Player extends PlayerBase<ModelInfo> {
   /** @internal */
   protected get feel() { return this.puppet.tuning }
   /** @internal */
-  protected get ownFeel() { return { ...defaultTuning(), ...(this.puppet.model?.tuning || {}) } }
+  protected get ownFeel() { return ownTuning(this.puppet.model) }
   /** @internal */
   protected get blinkHold() { return this.puppet.blinkHandover ? BLINK_HOLD : 0 }
   /** turn, nod, fringe or hairRest changed (the key poses are measured in them): the keyforms are measured again, once,
@@ -163,7 +167,7 @@ export class Player extends PlayerBase<ModelInfo> {
         const all = labels || { [langOf(label)]: label }
         return { id, label: pickLabel(all, this.lang, id), labels: all }
       }),
-      watermark: m.watermark ?? null, meta: m.meta ?? null,
+      watermark: m.watermark ?? null, meta: m.meta ?? null, parts: p.softParts,
     }
     // v4 says which mark it is; before it the text "LivLiv" meant the logo
     const kind = m.meta ? m.meta.watermark?.kind ?? 'none' : m.watermark === 'LivLiv' ? 'livliv' : m.watermark ? 'text' : 'none'

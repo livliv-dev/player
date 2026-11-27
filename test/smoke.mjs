@@ -306,6 +306,31 @@ try {
     console.log(`${ok ? 'ok  ' : 'FAIL'} loaded while its canvas has no size (${id}, ${r.hidden.join(' x ')} then shown): ${r.differs.join('/')} px differ from one loaded where it shows, eyes ahead and aside; WebGL errors ${r.errors.length ? r.errors.join(', ') : 'none'}`)
   }
 
+  // soft parts (see runParts): off in each way the same frames as none, on moving; on a character whose turns come from
+  // keyforms too. And a hostile list of them (see runPartsHostile)
+  for (const id of new Set([ids.find((i) => i === 'k01') ?? ids[0], ids.find((i) => i === 'd03ft') ?? kfId])) {
+    const r = await page.evaluate((a) => window.runParts(a), id)
+    const listed = (l) => JSON.stringify(l)
+    const ok = r.off.every((runs) => runs.every((n) => n === 0)) && r.moves.some((n) => n > 0)
+      && listed(r.parts[0]) === listed([{ id: 'ear_L', kind: 'ear' }, { id: 'ear_R', kind: 'ear' }]) && listed(r.parts[1]) === '[]' && listed(r.parts[2]) === '[]'
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} soft parts (${id}): ${r.moves.join('/')} px move with two ears; tuning.parts 0 in the file, setTuning({ parts: 0 }) and an unknown kind differ from none by ${r.off.map((x) => x.join('/')).join(', ')} px; a frame ${r.ms[0]} ms, with the ears ${r.ms[1]} ms${ok ? '' : `: ${JSON.stringify(r.parts)}`}`)
+  }
+  {
+    const id = ids.find((i) => i === 'k01') ?? ids[0]
+    const r = await page.evaluate((a) => window.runPartsIdle(a), id)
+    const ok = r.off.every((n) => n === 0) && r.on.some((n) => n > 0)
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} soft parts with the idle motion (${id}, Math.random seeded): ears at tuning.parts 0 differ from none by ${r.off.join('/')} px over 10 s; on by ${r.on.join('/')} px`)
+  }
+  {
+    const id = ids.find((i) => i === 'k01') ?? ids[0]
+    const r = await page.evaluate((a) => window.runPartsHostile(a), id)
+    const ok = !r.hostile.error && r.hostile.parts >= 1 && r.hostile.parts <= 8 && r.hostile.ms < r.plain.ms + 1500
+    if (!ok) failed++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} hostile soft parts (${id}): loads in ${r.hostile.ms} ms (${r.plain.ms} ms without), plays ${r.hostile.parts} of 8 canvas-wide ears, a frame ${r.hostile.frame} ms (${r.plain.frame} ms without)${r.hostile.error ? `: ${r.hostile.error}` : ''}`)
+  }
+
   // the blink hand-over's switch on Player (see runBlinkSwitch)
   {
     const id = ids.find((i) => i === 'k01') ?? ids[0]

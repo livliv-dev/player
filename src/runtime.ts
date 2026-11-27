@@ -15,6 +15,9 @@ export {
   readModel, FORMAT, FORMAT_VERSION, LEGACY_FORMAT, LEGACY_VERSION, FEATURES, LIMITS, latticeCell, latticeOf, pickLabel, langOf, uiLang,
 } from './runtime/format'
 export type { Labels, ModelMeta, ModelFiles, Watermark } from './runtime/format'
+// soft parts (rig.parts): reading them as the player does, their fields and motion
+export { readParts, partsGain, EAR, EAR_EVERY, PART_KINDS, PARTS_GAIN_MAX } from './runtime/parts'
+export type { EarDef, Ear, PartDef } from './runtime/parts'
 // full-body characters
 export { fullBody, fitBox, BODY_POINTS, type Fit, type FullBody, type BodyAnchors } from './runtime/fullbody'
 // motion: the idle, actions, talking, filters

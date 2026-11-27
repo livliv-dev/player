@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.0 (not released yet)
+
+Soft parts: animal ears that move on their own. A page written for 0.6 needs no change, and a model without
+`rig.parts` plays exactly as before.
+
+### New
+
+- **Soft parts** (`rig.parts`, format 4.3): regions of the picture that move on their own, added to a character after
+  it is built and changing no image. The first kind is an upright animal ear: it swings a little as the head moves and
+  twitches now and then (every 5–10 s). Every layer in its region moves alike, so the copy of the ear a build paints
+  behind it moves with it and nothing under it shows. See [API.md](API.md#soft-parts) and
+  [FORMAT.md](FORMAT.md#appendix-e-soft-parts-rigparts-43).
+- **`tuning.parts`**, a feel setting (`setTuning({ parts })`): how far they move, 0 off (the picture as without them),
+  at most 2. `player.model.parts` lists the parts a model has; a page that may run on an older player asks it before
+  offering the setting.
+- **Format 4.3**: `rig.parts` and `tuning.parts` in the schema. Readers before 0.7 ignore them: the same picture, the
+  ears still. An entry of a kind a reader does not know is skipped, and one that is not valid is dropped while the model
+  plays on.
+- `@livliv-dev/player/runtime`: `readParts` and `partsGain` (`rig.parts` and `tuning.parts` read as the renderer reads
+  them), `EAR` (an ear's defaults and ranges) and `Puppet.softParts`.
+- Limits for `rig.parts` as untrusted input: 32 entries, 8 ears, 16 points a spine; their fields are weighed at load at
+  no more than 262 144 lattice points, measuring a point against a segment of a spine no more than 4 194 304 times
+  (`LIMITS.parts`, `ears`, `partPoints`, `partVertices`, `partWork`).
 ## 0.6.1
 
 A fix. A page written for 0.6.0 needs no change.
