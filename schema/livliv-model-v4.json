@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://livliv.ai/schema/livliv-model-v4.json",
-  "$comment": "Format 4.2 (FORMAT.md). The $id is where it will be published. This schema covers model.json; the rules it cannot express (unique ids, references that resolve, files present, image sizes) are FORMAT.md §8.",
+  "$comment": "Format 4.3 (FORMAT.md). The $id is where it will be published. This schema covers model.json; the rules it cannot express (unique ids, references that resolve, files present, image sizes) are FORMAT.md §8.",
   "title": "LivLiv model package, format 4: model.json",
   "type": "object",
   "required": ["format", "version", "name", "meta", "canvas", "anchors", "layers"],
@@ -174,7 +174,8 @@
         "mouth": { "type": "number", "minimum": 0, "maximum": 10 },
         "breath": { "type": "number", "minimum": 0, "maximum": 10 },
         "gaze": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: the share of the iris's travel the eyes use; 1 and above is all of it." },
-        "fringe": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: how far the bangs stand off the face, their depth times this; 0 lies on the face. Readers draw it at most about twice the usual distance (FORMAT.md §5)." }
+        "fringe": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.2: how far the bangs stand off the face, their depth times this; 0 lies on the face. Readers draw it at most about twice the usual distance (FORMAT.md §5)." },
+        "parts": { "type": "number", "minimum": 0, "maximum": 10, "description": "4.3: the soft parts' motion (rig.parts), a factor; more than 2 counts as 2; 0 off, the picture as without them." }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false
@@ -276,6 +277,39 @@
       "additionalProperties": false
     },
 
+    "part": {
+      "type": "object", "required": ["kind", "id"],
+      "description": "A soft part (4.3, FORMAT.md Appendix E): kind ear, or a writer's own kind starting x_, which readers skip.",
+      "properties": {
+        "kind": { "anyOf": [{ "const": "ear" }, { "type": "string", "pattern": "^x_[a-z0-9_]{1,31}$" }] },
+        "id": { "$ref": "#/$defs/id" }
+      },
+      "if": { "properties": { "kind": { "const": "ear" } } },
+      "then": { "$ref": "#/$defs/ear" }
+    },
+
+    "ear": {
+      "type": "object", "required": ["kind", "id", "spine", "width"],
+      "description": "A soft part of kind ear (4.3, FORMAT.md Appendix E): an upright animal ear, a band along its spine that turns about its root. A missing number takes the default given here.",
+      "properties": {
+        "kind": { "const": "ear" },
+        "id": { "$ref": "#/$defs/id" },
+        "spine": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "$ref": "#/$defs/point" }, "description": "From the root (where the ear meets the head) toward the tip." },
+        "width": { "type": "array", "prefixItems": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "number", "exclusiveMinimum": 0 }], "items": false, "minItems": 2, "description": "Half the band's width across the spine at the root and at the tip (px); all of the ear, its outline too, inside it." },
+        "feather": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.35, "description": "The soft edge past the width, a share of width[0]." },
+        "bend": { "type": "number", "minimum": 0.05, "maximum": 1, "default": 1, "description": "The share of the spine over which the weight rises to 1; less turns the upper ear stiffly and bends only its base." },
+        "hz": { "type": "number", "minimum": 0.5, "maximum": 20, "default": 5, "description": "The spring's frequency." },
+        "damp": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.5, "description": "The spring's damping ratio." },
+        "drive": { "type": "number", "minimum": 0, "maximum": 20, "default": 4, "description": "How far the root's acceleration throws it (1: a free pendulum of its length)." },
+        "max_angle": { "type": "number", "minimum": 0, "maximum": 45, "default": 12, "description": "The most it turns either way (degrees)." },
+        "hang": { "type": "number", "minimum": 0, "maximum": 1, "default": 0, "description": "How much it keeps hanging as the head rolls." },
+        "twitch": { "type": "number", "minimum": 0, "maximum": 30, "default": 7, "description": "A twitch's peak (degrees, outward); 0 never." },
+        "twitch_every": { "type": "array", "prefixItems": [{ "type": "number", "minimum": 1, "maximum": 120 }, { "type": "number", "minimum": 1, "maximum": 120 }], "items": false, "minItems": 2, "default": [5, 10], "description": "Seconds between twitches, drawn evenly from this range (the first not above the second)." }
+      },
+      "patternProperties": { "^x-": {} },
+      "additionalProperties": false
+    },
+
     "rig": {
       "type": "object",
       "description": "Rig settings (FORMAT.md Appendix C). A missing one takes the reference player's default, given here.",
@@ -314,7 +348,8 @@
         },
         "jaw": { "type": "number" },
         "lattice": { "type": "integer", "minimum": 6, "maximum": 256, "description": "The mesh lattice's cell (px). Missing: max(6, round(max(width, height) / 128)). A full-body character keeps its head-and-chest density on its tall canvas with it (4.1)." },
-        "chains": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/chain" } }
+        "chains": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/chain" } },
+        "parts": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/part" }, "description": "4.3: soft parts, regions that move on their own without changing an image (FORMAT.md Appendix E). Readers skip a kind they do not know." }
       },
       "patternProperties": { "^x-": {} },
       "additionalProperties": false

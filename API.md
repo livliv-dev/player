@@ -155,6 +155,7 @@ try {
 | `expressions` | `{ id, label, labels }[]`: what `setExpression()` takes. Standard ids (`smile`, `shy`, `angry`, `sad`, `surprised` …, [FORMAT.md](FORMAT.md#appendix-a-standard-expression-ids-40)) mean the same on every model; `x_…` ids are the model's own. `label` is the name in `lang`, `labels` every language's |
 | `watermark` | the mark drawn over the character: `"LivLiv"`, the owner's own text, or `null` |
 | `meta` | a v4 package's `meta`: `author`, `license` (`{ id, url }`), `generator`, `created`, `watermark`; `null` before v4 |
+| `parts` | `{ id, kind }[]`: the soft parts this player plays (the model's `rig.parts`, see [Soft parts](#soft-parts)), empty when it has none. Players before 0.7 do not set it |
 
 `player.model` is the loaded model's `ModelInfo` (null before the first load), `player.expressions` its expressions.
 
@@ -217,6 +218,7 @@ player.tuning.turn                            // 1 (if the model says nothing)
 | `blink` | `blink` | how often the idle motion blinks (at 0 still now and then, every 9–28 s) |
 | `expr` | `expr` | how readily face tracking reads a smile |
 | `mouth` | `mouth` | how far face tracking and live lip sync open the mouth |
+| `parts` | `parts` | how far the soft parts move ([Soft parts](#soft-parts)): an ear's swing and its twitches; at most 2; 0 off |
 
 A value is a number from 0 to 10, as in a model file (above 10 counts as 10); `undefined` or `null` puts a setting back to
 the model's own.
@@ -224,6 +226,25 @@ A name that is no setting, or a value that is no number from 0 up, throws a `Typ
 `load()` starts again from the new character's own settings. At 1 (or not set) a setting changes nothing: a model
 without `tuning` plays as it always has. Changing `turn`, `nod`, `fringe` or `hairRest` on a model with keyforms
 measures its key poses again before the next frame, so it draws exactly as it would loaded with those settings.
+
+### Soft parts
+
+A model may carry soft parts (`rig.parts`, format 4.3, [FORMAT.md](FORMAT.md#appendix-e-soft-parts-rigparts-43)):
+regions of the picture that move on their own, with no change to an image. The first kind is an upright animal ear: it
+swings a little as the head moves, and twitches now and then, every 5 to 10 seconds by default. A model without
+`rig.parts` plays as before, and so does one with them under `tuning.parts` 0.
+
+`player.model.parts` lists the parts this player plays (`{ id, kind }`), empty when there are none: show a setting for
+them only when it is not empty. `setTuning({ parts })` scales their motion (0 off, 1 the model's, at most 2). A page that
+may run on a player from before 0.7 asks first, since there `parts` is no setting and `setTuning` throws (changing
+nothing):
+
+```js
+if (player.model?.parts?.length) player.setTuning({ parts: 0 })   // undefined before 0.7: nothing to turn off
+```
+
+The twitches come at random moments, as blinks do; they are physics, like the hair's swing, so `renderPose(pose, dt)`
+moves them on by `dt` and a recorded pose does not fix when they come.
 
 ### Blinks
 
@@ -539,8 +560,9 @@ p.update(1 / 60); p.render()                     // your loop: update(dt), then 
 What the high-level players add on top is theirs, not the renderer's. The idle motion, the drivers and the mark are not
 in `Puppet`, and neither is the first frame's warm-up: `puppet.prewarm` is off by default (Player turns it on; see the
 changelog for 0.6.0). The feel settings are `puppet.tuning`, read each frame; after changing `turn`, `nod`, `fringe` or
-`hairRest` on a model with keyforms, call `puppet.retune()`. The blink hand-over is the renderer's
-(`puppet.blinkHandover`, on); the hold that goes with it is the idle motion's: `LivelyIdle` and `IdleDriver` have
+`hairRest` on a model with keyforms, call `puppet.retune()`. The soft parts are the renderer's: `readParts` reads
+`rig.parts` as it does, `puppet.softParts` lists those it plays and `puppet.tuning.parts` scales them. So is the blink
+hand-over (`puppet.blinkHandover`, on); the hold that goes with it is the idle motion's: `LivelyIdle` and `IdleDriver` have
 `blinkHold` (0, as before 0.6). Set it to `BLINK_HOLD` while the hand-over is on, as Player does, or a frame often misses
 the bottom of a blink and it never shows the closed eye. `eyeFade`, `blinkOpen` and `blinkOver` are the curves they use.
 

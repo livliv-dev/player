@@ -22,6 +22,7 @@ import { CROUCH_CAM, FB_ANKLE, FB_ANKLE_BAND, FB_CAM_SWAY, FB_GAIN, FB_HEM_C, FB
   FB_HIP_BACK, FB_HIP_C, FB_HIP_IDLE, FB_HIP_K, FB_HIP_REACH, FB_HIP_SLIDE, FB_HIP_TILT, FB_SHOULDER_ANSWER, FB_WAIST,
   fitBox, fullBody, type BodyAnchors, type Fit, type FullBody } from './fullbody'
 import { BLINK_HOLD, PARAM_RANGES, blinkOpen, blinkOver, defaultParams, eyeFade, smooth, type Params } from './params'
+import { SoftRig, latticeBox, partsGain, readParts, seeded, softRandom, spineField, withinBudget, type PartDef } from './parts'
 
 export { BLINK_HOLD, PARAM_RANGES, blinkOpen, blinkOver, defaultParams, eyeFade, smooth, type Params }
 
@@ -166,6 +167,9 @@ export type Rig = {
   /** the mesh lattice's cell (model px), pinned: a full-body model keeps the head-chest density (12) on its tall
    *  canvas. Missing: from the canvas (format.ts latticeCell) */
   lattice?: number
+  /** soft parts (format 4.3, parts.ts): regions that move on their own, an upright animal ear the first kind. Read
+   *  by readParts, which skips the kinds this player does not know and drops what is not valid */
+  parts?: PartDef[]
 }
 /** one swinging piece: a rope of points (root first, model px) pulled toward its drawn shape in the frame of what it
  *  hangs from, thrown by that root's acceleration, kept hanging down by gravity as far as `hang` says. Cubism's
@@ -216,8 +220,19 @@ export type Tuning = { turn: number; nod: number; hair: number; blink: number; e
   hairSway?: number
   /** long hair resting on the body (hairRestOf): the share of the head's motion that hair lying on the body below the neck
    *  gives up to the body's. 0 is as before 0.6.0; unset, the default */
-  hairRest?: number }
+  hairRest?: number
+  /** the soft parts' motion (rig.parts: an ear's swing and twitches), a factor up to 2 (partsGain): 0 is off, a frame as
+   *  without them */
+  parts?: number }
 export const defaultTuning = (): Tuning => ({ turn: 1, nod: 1, hair: 1, blink: 1, expr: 1, mouth: 1, breath: 1, gaze: 1 })
+/** A model's own feel settings, as a load starts from them: its tuning over the defaults. A `parts` that is no number from 0
+ *  up is left out (the default, 1): players before 0.7 never read it, and kept it would reach player.tuning as it is
+ *  @internal */
+export function ownTuning(m: { tuning?: Partial<Tuning> } | null | undefined): Tuning {
+  const t: Tuning = { ...defaultTuning(), ...(m?.tuning || {}) }
+  if (t.parts !== undefined && !(typeof t.parts === 'number' && Number.isFinite(t.parts) && t.parts >= 0)) delete t.parts
+  return t
+}
 /** the deepest the bangs go when tuning.fringe pulls them out: the usual 0.15 bangs reach 2x; at 0.45 (3x) strands
  *  crossed the eyes on a turn. A layer drawn deeper keeps its own depth */
 export const FRINGE_MAX = 0.3
@@ -284,6 +299,9 @@ interface GLLayer {
   kf?: (Float32Array | null)[]
   /** the chains bending it (LayerDef.bones), and for brows over chained bangs the bangs' chains (alt) */
   skin?: Skin; altSkin?: Skin
+  /** soft parts (rig.parts): the vertices inside a part's field, each with the part (index into Puppet.soft.runs), its
+   *  weight there and its offset from the part's root, at rest */
+  inParts?: { i: Int32Array; p: Uint8Array; w: Float32Array; qx: Float32Array; qy: Float32Array }
 }
 /** per vertex and bone (n x B, flat): the chain (index into Puppet.chainRuns), the segment its nearest point lies on, how
  *  far along it, the vertex's offset from that point, and its weight */
@@ -643,6 +661,14 @@ export class Puppet {
   /** keyforms.json's interp 'hermite': per key, the key on the other side of 0 of the same angle (-1: none) */
   private kfPair: number[] | null = null
   kfOff = false
+  /** the soft parts in motion (rig.parts), or null: none this player plays
+   *  @internal */
+  soft: SoftRig | null = null
+  /** a seed for the soft parts' twitches (a load starts them from it), for tests and recordings: the same twitches at the
+   *  same moments on every run. null: from the platform's random bytes, never from Math.random, which the idle motion
+   *  draws its blinks and glances from
+   *  @internal */
+  softSeed: number | null = null
   /** the keyforms the keys were measured from, kept to measure them again when turn, nod, fringe or hairRest changes
    *  (retune), and their fields decoded */
   private kfFile: KeyformFile | undefined = undefined
@@ -828,6 +854,7 @@ export class Puppet {
     }
     Object.assign(this, { lastHead: { ...b.lastHead }, drive: { ...b.drive }, body: { ...b.body }, bust: { ...b.bust }, fbm: { ...b.fbm }, sway: { ...b.sway },
       crouch: b.crouch, dip: b.dip, expr: { ...b.expr }, smileShown: b.smileShown })
+    if (this.soft && b.soft) this.soft.carry(b.soft)
     this.pv.roll = NaN
   }
 
@@ -866,6 +893,7 @@ export class Puppet {
       L.id === 'brows' || L.role === 'expr_brows' || L.brow_tex ? bangs : undefined)))
     this.layers = built
     this.byId = new Map(this.layers.map((l) => [l.def.id, l]))
+    this.soft = this.buildSoft(model)
     // each iris's room toward the nose: the nose lies toward the eyes' midpoint (a view with one eye has no limit)
     this.nasal = {}
     const eyes = model.anchors.eyes
@@ -893,7 +921,7 @@ export class Puppet {
         }
       }
     }
-    this.tuning = { ...defaultTuning(), ...(model.tuning || {}) }
+    this.tuning = ownTuning(model)
     // the chest spring (rig.body.bust) is off for every model, as on livliv.ai: a value saved in a model is not applied.
     // Breathing stays, with the chest lift every other figure has
     this.rig = { ...defaultRig(), ...(model.rig || {}), hair: { ...defaultRig().hair, ...(model.rig?.hair || {}) },
@@ -909,6 +937,41 @@ export class Puppet {
     if (keyforms && keyformsFit(keyforms)) { this.kfFile = keyforms; this.prepareKeyforms(keyforms) }
     else if (keyforms) console.warn('LivLiv: keyforms.json is not one this player reads; the character plays on the rig alone')
   }
+
+  /** The soft parts this player plays (rig.parts, within LIMITS), and each layer's vertices inside their fields: their
+   *  weights and their offsets from the part's root, at rest. One field over the lattice: every layer at a place moves
+   *  alike, the copy of an ear painted into the hair behind it with the ear */
+  private buildSoft(model: ModelDef): SoftRig | null {
+    for (const L of this.layers) L.inParts = undefined
+    const warn = (why: string) => console.warn(`LivLiv: ${why}`)
+    const ears = readParts(model, warn)
+    if (!ears.length) return null
+    const cell = latticeOf(model)
+    const kept = withinBudget(ears.map((e) => ({ id: e.id, field: spineField(e), e })), model.layers, cell, warn)
+    if (!kept.length) return null
+    const rig = new SoftRig(kept.map((k) => k.e), model.anchors.head.cx, this.time, this.softSeed != null ? seeded(this.softSeed) : softRandom())
+    const fields = rig.runs.map((R) => R.part.field)
+    for (const L of this.layers) {
+      const [lx0, ly0, lx1, ly1] = latticeBox(L.def, cell)
+      const near = fields.flatMap((f, k) => (f.box[0] <= lx1 && f.box[2] >= lx0 && f.box[1] <= ly1 && f.box[3] >= ly0 ? [k] : []))
+      if (!near.length) continue
+      const ii: number[] = [], pp: number[] = [], ww: number[] = [], qx: number[] = [], qy: number[] = []
+      for (let i = 0; i < L.rest.length / 2; i++) {
+        const x = L.rest[2 * i], y = L.rest[2 * i + 1]
+        for (const k of near) {
+          const [x0, y0, x1, y1] = fields[k].box
+          if (x < x0 || x > x1 || y < y0 || y > y1) continue
+          const w = fields[k].at(x, y)
+          if (w > 1e-3) { const r = rig.runs[k].root; ii.push(i); pp.push(k); ww.push(w); qx.push(x - r[0]); qy.push(y - r[1]) }
+        }
+      }
+      if (ii.length) L.inParts = { i: Int32Array.from(ii), p: Uint8Array.from(pp), w: Float32Array.from(ww), qx: Float32Array.from(qx), qy: Float32Array.from(qy) }
+    }
+    return rig
+  }
+
+  /** the soft parts this player plays for the model loaded (rig.parts): their ids and kinds */
+  get softParts(): { id: string; kind: string }[] { return (this.soft?.runs ?? []).map((R) => ({ id: R.part.id, kind: R.part.kind })) }
 
   /** each key pose's fields, as a per-vertex offset from the rig's own pose at that key: measured once here with the
    *  springs at rest, the torso settled and the face neutral, so at the key the character stands exactly as in the clip
@@ -1746,8 +1809,13 @@ export class Puppet {
     for (const k of ['angleX', 'angleY', 'angleZ'] as const) P[k] = Math.max(PARAM_RANGES[k][0], Math.min(PARAM_RANGES[k][1], P[k]))
     const steps = Math.max(1, Math.ceil(dt / (1 / 120))) // sub-step physics for stability
     this.fbParts = false
+    // the soft parts: off (tuning.parts 0), at rest and not stepped
+    const gain = partsGain(this.tuning.parts), soft = this.soft && gain > 0 ? this.soft : null
+    if (this.soft && dt > 0) this.soft.frame(this.time, gain)
+    if (this.soft && !soft) this.soft.reset()
     for (let i = 0; i < steps; i++) {
       this.stepBody(dt / steps); this.stepPhysics(dt / steps); this.stepChains(dt / steps)
+      if (soft) this.stepSoft(dt / steps, this.time - dt + (i + 1) * (dt / steps), gain)
       if (this.fb) this.stepFb(dt / steps)
     }
     if (mesh) this.deform()
@@ -1826,6 +1894,8 @@ export class Puppet {
     // tuning.fringe: the bangs' depth, and the brows over them that move as the bangs do (alt), scaled where read
     const fringeB = fringeScale(this.bangsDepth, this.tuning.fringe)
     const holdK = hairRestOf(this.tuning)  // long hair resting on the body
+    // soft parts: not while the keyforms are measured (the rig alone), nor when they are off or every one is at rest
+    const softOn = !!this.soft && !this.kfOff && partsGain(this.tuning.parts) > 0 && !this.soft.still, softC = Math.cos(roll), softS = Math.sin(roll)
     for (const L of this.layers) {
       this.fbParts = !!this.fb && L.def.group === 'body'
       // a layer not drawn this frame (an expression that is off, closed lashes on an open eye) is not moved either;
@@ -1919,6 +1989,35 @@ export class Puppet {
         }
         o[2 * i] = X; o[2 * i + 1] = Y
       }
+      if (L.inParts && softOn) this.applySoft(L, softC, softS)
+    }
+  }
+
+  /** the soft parts' springs, one physics sub-step: each root where the head puts it (and the torso under the head) */
+  private stepSoft(dt: number, time: number, gain: number) {
+    const P = this.params, A = this.model.anchors, hp: [number, number] = [0, 0], nb: [number, number] = [0, 0], S = this.soft!
+    this.bodyOffset(A.head.cx, A.neck_y, P, nb)
+    const roll = (P.angleZ * Math.PI) / 180 * this.rig.roll * this.tuning.turn
+    for (const R of S.runs) {
+      this.headXform(R.root[0], R.root[1], 0, P, hp)
+      S.step(R, { dt, time, gain, root: [hp[0] + nb[0], hp[1] + nb[1]], roll })
+    }
+    S.settle()
+  }
+
+  /** Soft parts: each vertex in a part's field moves as its place AT REST turns about the part's root by the spring's
+   *  angle times its weight, that offset turned with the head's roll. Worked out from the rest place, so every layer at
+   *  one place moves by exactly the same amount; a layer that draws from outB (brows over the bangs) moves it alike */
+  private applySoft(L: GLLayer, rc: number, rs: number) {
+    const pw = L.inParts!, o = L.out, oB = L.outB, runs = this.soft!.runs
+    for (let k = 0; k < pw.i.length; k++) {
+      const a = runs[pw.p[k]].theta * pw.w[k]
+      if (a === 0) continue
+      const i = pw.i[k], c = Math.cos(a) - 1, s = Math.sin(a), qx = pw.qx[k], qy = pw.qy[k]
+      const dx = c * qx - s * qy, dy = s * qx + c * qy
+      const ox = dx * rc - dy * rs, oy = dx * rs + dy * rc
+      o[2 * i] += ox; o[2 * i + 1] += oy
+      if (oB) { oB[2 * i] += ox; oB[2 * i + 1] += oy }
     }
   }
 
@@ -2275,6 +2374,8 @@ export class Puppet {
     const chains = Object.values(this.chains).map((c) => c.map((q) => ({ ...q })))
     const keep = { lastHead: { ...this.lastHead }, drive: { ...this.drive }, body: { ...this.body }, bust: { ...this.bust }, fbm: { ...this.fbm },
       sway: { ...this.sway }, crouch: this.crouch, dip: this.dip, kfOff: this.kfOff }
+    const soft = this.soft  // the soft parts go on as they are: the keyforms are measured without them
+    this.soft = null
     this.resetPhysics()
     this.keys = []; this.kfPair = null
     for (const L of this.layers) L.kf = undefined
@@ -2283,6 +2384,7 @@ export class Puppet {
     Object.values(this.chains).forEach((c, i) => c.forEach((q, j) => Object.assign(q, chains[i][j])))
     Object.assign(this, { lastHead: keep.lastHead, drive: keep.drive, body: keep.body, bust: keep.bust, fbm: keep.fbm, sway: keep.sway, crouch: keep.crouch, dip: keep.dip })
     this.kfOff = keep.kfOff
+    this.soft = soft
     this.pv.roll = NaN  // the full-body pose's memo holds the measuring pose: worked out again next frame
   }
 
@@ -2297,6 +2399,7 @@ export class Puppet {
     this.bust = { x: 0, y: 0, vx: 0, vy: 0, px: 0, py: 0 }
     this.fbm = { hs: 0, hv: 0, tilt: 0, tanTilt: 0, hem: 0, hemV: 0, breath: 0 }
     this.crouch = 0; this.dip = 0; this.pv.roll = NaN
+    this.soft?.reset()
   }
 
   snapshot(): string { return this.canvas.toDataURL('image/png') }

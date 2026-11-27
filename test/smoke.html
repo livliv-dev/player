@@ -813,6 +813,95 @@
       same: offFile.shots.map((d, i) => differ(d, offSet.shots[i])), rests: on.shots.map((d, i) => differ(d, offSet.shots[i])) }
   }
 
+  /** soft parts (rig.parts): two ears placed on the hair above the head, as a build places them on animal ears. The
+   *  model without them, with them and tuning.parts 0 in its file, with them and setTuning({ parts: 0 }), and with only
+   *  a kind this player does not know: the same frames, to the pixel. With them on, the frames differ; model.parts lists
+   *  them. And a frame's cost with them and without */
+  const earsOf = (m) => {
+    const h = m.anchors.head, top = m.anchors.top_y
+    return ['L', 'R'].map((side, i) => {
+      const s = i ? 1 : -1
+      return { kind: 'ear', id: `ear_${side}`, width: [Math.round(0.35 * h.rx), Math.round(0.15 * h.rx)],
+        spine: [[Math.round(h.cx + s * 0.5 * h.rx), Math.round(h.cy - 0.7 * h.ry)], [Math.round(h.cx + s * 0.75 * h.rx), Math.round(Math.max(top + 20, h.cy - 1.05 * h.ry))]] }
+    })
+  }
+  window.runParts = async (id) => {
+    const m = bare(await json(id)), parts = earsOf(m)
+    const withParts = (p, tuning) => ({ ...m, rig: { ...m.rig, parts: p }, ...(tuning ? { tuning: { ...m.tuning, ...tuning } } : {}) })
+    const play = async (model, set) => {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      const info = await p.load(await filesOf(id, model))
+      p.resize()
+      if (set) p.setTuning(set)
+      const base = p.getPose(), shots = []
+      let ms = 0
+      for (let n = 0; n < 120; n++) {
+        const params = { ...base.params, angleX: 25 * Math.sin(n / 9), angleZ: 10 * Math.sin(n / 13), angleY: 8 * Math.sin(n / 7) }
+        const t0 = performance.now()
+        p.renderPose({ ...base, params }, 1 / 60)
+        ms += performance.now() - t0
+        if (n % 10 === 9) shots.push(pixels())
+      }
+      p.dispose()
+      return { shots, parts: info.parts, ms: ms / 120 }
+    }
+    const none = await play(m), on = await play(withParts(parts)), offFile = await play(withParts(parts, { parts: 0 }))
+    const offSet = await play(withParts(parts), { parts: 0 }), unknown = await play(withParts([{ kind: 'x_tail', id: 'tail', spine: [[1, 2], [3, 4]] }]))
+    const vs = (r) => r.shots.map((d, i) => differ(d, none.shots[i]))
+    return { off: [vs(offFile), vs(offSet), vs(unknown)], moves: vs(on), parts: [on.parts, none.parts, unknown.parts],
+      ms: [none.ms, on.ms].map((v) => Math.round(v * 100) / 100) }
+  }
+
+  /** soft parts and the idle motion: with Math.random seeded the same, a Player idling (blinks, glances, moves) draws a model
+   *  with ears and tuning.parts 0 frame by frame as the model without them (the twitches draw on numbers of their own),
+   *  and with the ears on differently */
+  window.runPartsIdle = async (id) => {
+    const m = bare(await json(id)), parts = earsOf(m), real = Math.random
+    const seeded = (seed) => () => { seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x ^= x + Math.imul(x ^ (x >>> 7), 61 | x); return ((x ^ (x >>> 14)) >>> 0) / 4294967296 }
+    const play = async (model) => {
+      Math.random = seeded(11)
+      try {
+        const p = new Player(canvas, { autoplay: false, followPointer: false, idle: true })
+        await p.load(await filesOf(id, model))
+        const shots = []
+        for (let n = 0; n < 600; n++) { p.draw(1 / 60); if (n % 30 === 29) shots.push(pixels()) }
+        p.dispose()
+        return shots
+      } finally { Math.random = real }
+    }
+    const withParts = (tuning) => ({ ...m, rig: { ...m.rig, parts }, ...(tuning ? { tuning: { ...m.tuning, ...tuning } } : {}) })
+    const none = await play(m), off = await play(withParts({ parts: 0 })), on = await play(withParts())
+    return { off: off.map((d, i) => differ(d, none[i])), on: on.map((d, i) => differ(d, none[i])) }
+  }
+
+  /** soft parts as untrusted input: 32 entries, eight ears as wide as the canvas with 16-point spines across it, the rest of
+   *  kinds unknown, beside entries that are not valid. The model loads, plays what fits the budget, and loads in about the
+   *  time it takes without them */
+  window.runPartsHostile = async (id) => {
+    const m = bare(await json(id)), [W, H] = m.canvas
+    const wide = Array.from({ length: 8 }, (_, k) => ({ kind: 'ear', id: `e${k}`, width: [W, W],
+      spine: Array.from({ length: 16 }, (_, i) => [((i + k) * W) / 16, H - (i * H) / 16]) }))
+    const odd = Array.from({ length: 20 }, (_, k) => ({ kind: 'x_other', id: `o${k}` }))
+    const broken = [{ kind: 'ear', id: 'b1', spine: [[0, 0]], width: [1, 1] }, { kind: 'ear', id: 'b2', spine: [[0, 0], [10, 10]], width: [NaN, 1] },
+      { kind: 'ear', id: 'b3', spine: [[0, 0], [1e9, 10]], width: [1, 1] }, { kind: 'ear', id: 'b4', spine: [[0, 0], [9, 9]], width: [1, 1], hz: 'x' }]
+    const load = async (model) => {
+      const p = new Player(canvas, { autoplay: false, followPointer: false, idle: false })
+      const t0 = performance.now()
+      let info = null, error = null
+      try { info = await p.load(await filesOf(id, model)); p.resize() } catch (e) { error = String(e) }
+      const ms = performance.now() - t0
+      let frame = 0
+      if (info) {
+        const base = p.getPose(), t1 = performance.now()
+        for (let n = 0; n < 10; n++) p.renderPose({ ...base, params: { ...base.params, angleX: 20 * Math.sin(n) } }, 1 / 60)
+        frame = (performance.now() - t1) / 10
+      }
+      p.dispose()
+      return { ms: Math.round(ms), frame: Math.round(frame * 10) / 10, parts: info?.parts?.length ?? null, error }
+    }
+    return { plain: await load(m), hostile: await load({ ...m, rig: { ...m.rig, parts: [...wide, ...odd, ...broken] } }) }
+  }
+
   /** the advanced entry, @livliv-dev/player/runtime: the same renderer as Player's (one copy of the code), its exports, the
    *  warm-up off there and on in Player, and the inspection methods: meshes(), rgbaAt(), layersAt() against livliv.ai's own
    *  pickPosed (written out here from meshes() and rgbaAt()), at rest and in turned poses */

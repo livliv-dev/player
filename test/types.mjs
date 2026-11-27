@@ -22,7 +22,7 @@ import { createSpeech, startLipSync, type ClipHooks, type LipSync } from '${name
 import { BODY_LIMIT, BodyPlayer, LivLivError as FromBody, type Body } from '${name}/body'
 import { PngBody } from '${name}/png'
 import { VrmBody } from '${name}/vrm'
-import { Puppet, LIMITS, V, keyformsFit, readModel, LivelyIdle, IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand, type MeshView, type LayerHit, type Fit as RuntimeFit } from '${name}/runtime'
+import { Puppet, LIMITS, V, keyformsFit, readModel, readParts, LivelyIdle, IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand, type MeshView, type LayerHit, type Fit as RuntimeFit, type EarDef, type Ear } from '${name}/runtime'
 declare const canvas: HTMLCanvasElement
 const player = new Player(canvas, { parameterProfile: {} })
 player.parameterProfile = { angleX: { input: [-20, 20], output: [-30, 30], curve: 1, smoothing: .2 } }
@@ -101,6 +101,10 @@ const host: Host = { use: () => () => {}, blink() {} }
 const tuned: Host = { ...host, tuning: player.tuning }
 player.use({ update(_f, h) { void h.tuning?.mouth } })
 void [feel, blinkRate, tuned]
+// soft parts: what the model has, and their motion as a feel setting
+const parts: { id: string; kind: string }[] | undefined = player.model?.parts
+if (player.model?.parts?.length) player.setTuning({ parts: 0 })
+void parts
 // @ts-expect-error a copy to read: change them with setTuning
 player.tuning.turn = 2
 // @ts-expect-error only the feel settings
@@ -114,6 +118,12 @@ const hit: LayerHit | undefined = puppet.layersAt(1, 2, { solid: 3 }).layers[0]
 const rgba: [number, number, number, number] | null = puppet.rgbaAt('face', 1, 2)
 puppet.prewarm = true; puppet.retune()
 const fit: RuntimeFit = 'whole'
+const ears: Ear[] = readParts({ canvas: [1024, 1024], rig: { parts: [{ kind: 'ear', id: 'ear_L', spine: [[330, 300], [210, 40]], width: [120, 45] } satisfies EarDef] } })
+const played: { id: string; kind: string }[] = puppet.softParts
+puppet.tuning.parts = 0.5
+void [ears, played]
+// @ts-expect-error the soft parts' motion is the renderer's own
+void puppet.soft
 void [views, hit, rgba, fit, LIMITS.layers, V, keyformsFit, readModel, new LivelyIdle(), IDLE_STYLE, FaceTracker, VoiceMeter, SpeechPlayer, TalkMotion, ActionPlayer, brand.drawWatermark]
 // @ts-expect-error a mesh is a view: not written to
 views[0].out[0] = 1

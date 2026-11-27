@@ -7,7 +7,7 @@ that [livliv.ai](https://livliv.ai) exports and that LivLiv Player (`@livliv-dev
 - JSON Schema: [`schema/livliv-model-v4.json`](schema/livliv-model-v4.json) (`model.json`) and
   [`schema/livliv-keyforms-v1.json`](schema/livliv-keyforms-v1.json) (`keyforms.json`)
 - The format before this one: [FORMAT-v3.md](FORMAT-v3.md). Players read it forever.
-- Status: 4.2.
+- Status: 4.3.
 
 The key words MUST, SHOULD and MAY are used as in RFC 2119.
 
@@ -141,6 +141,7 @@ Paths are relative to `model.json`, use `/`, and contain no `..`, scheme or driv
 | `expr`, `mouth` | how readily face tracking reads a smile; how far face tracking and live lip sync open the mouth |
 | `gaze` (4.2) | the share of the iris's travel the eyes use; 1 and above is all of it |
 | `fringe` (4.2) | how far the bangs stand off the face: the depth of each `hair_front` layer times this (0 lies on the face). A reader draws a layer of depth `d` at most `max(d, 0.3)` deep |
+| `parts` (4.3) | how far the soft parts move (`rig.parts`, Appendix E): their swing and their twitches; more than 2 counts as 2; 0 turns them off, and the picture is as without them |
 
 `anchors` (all in canvas pixels):
 
@@ -247,14 +248,16 @@ What readers do:
 
 1. Read `format: "livliv-model"` up to the newest `version` they know; refuse a newer one, saying so ("update the
    player"). `format: "livemaker-puppet"` (or no `format`) is the previous format, [read as it is](FORMAT-v3.md).
-2. Refuse a model whose `requires` names a feature they do not have, naming it. Ignore fields they do not know.
+2. Refuse a model whose `requires` names a feature they do not have, naming it. Ignore fields they do not know, and
+   skip a soft part of a kind they do not know (Appendix E).
 3. Use defaults for missing optional fields; draw an unknown `role` as a plain layer; refuse an unknown `group`.
 4. Refuse a model whose layer image is missing; warn and play on when an optional file is missing.
 5. Hold packages to limits before decoding. The reference player's: `model.json` 4 MB; canvas 8192 px a side; 512
    layers; 2048 ZIP entries and 256 MB uncompressed; `keyforms.json` 32 MB; no entry with `..`, an absolute path or
    encryption; and what the meshes would cost, from the boxes alone: 2 097 152 vertices on a lattice of `rig.lattice`
    px, or `max(6, round(max(width, height) / 128))` without it, 1 048 576 of them times the chains bending them, a chain
-   named once per layer.
+   named once per layer; `rig.parts`: 32 entries, 8 ears, 16 points a spine, and the parts' fields weighed at load for
+   at most 262 144 lattice points (Appendix E).
 6. Treat everything in the package as data: there is nothing to run and no URL to fetch, and every string (names,
    labels, credits) is shown as plain text.
 7. Draw the watermark the package asks for (§3).
@@ -281,6 +284,9 @@ Changes:
   lists the feature.
 - **4.2**: optional `tuning.gaze` and `tuning.fringe` (§5), which LivLiv Player 0.5 already read, and
   `tuning.hair_sway` and `tuning.hair_rest` (from Player 0.6). A reader without them plays the defaults.
+- **4.3**: soft parts, `rig.parts` (Appendix E), the first kind an upright animal ear, and `tuning.parts` (§5). LivLiv
+  Player reads them from 0.7; earlier readers ignore them and draw the same picture, with the ears still. Not a
+  feature in `requires`.
 
 ## Appendix A: standard expression ids (4.0)
 
@@ -330,6 +336,7 @@ Changes:
 | `jaw` | the jaw drop for a model whose frames measured none |
 | `lattice` | the mesh lattice's cell in px, a whole number from 6 to 256 (4.1). Missing: `max(6, round(max(width, height) / 128))`. A full-body character keeps its head-and-chest density on its tall canvas with it: LivLiv writes 12 for 1536 × 3072, where the formula gives 24 |
 | `chains` | pieces that swing on their own: a rope of `points` (root first) with `k`, `damp`, `drive`, `hang`, `wind`, `freq`, `limit`, `sigma`, `reach`, `bias` |
+| `parts` | soft parts (4.3): regions that move on their own, without changing an image (Appendix E) |
 
 The schema gives the reference player's default for each.
 
@@ -349,5 +356,63 @@ The parameters are the player's API, not part of the package. For people coming 
 | `smile` | 0..1 | ParamSmile |
 | `bodyX`, `bodyZ` | −10..10 | ParamBodyAngleX / ParamBodyAngleZ |
 | `breath` | 0..1 | ParamBreath |
+
+## Appendix E: soft parts (`rig.parts`, 4.3)
+
+A soft part is a region of the picture that moves on its own: something added to a character after it is built that
+changes no image. Its weights, 0 to 1 over the canvas, say how much each place moves, and every layer at a place moves
+by the same rule. So what lies there moves as one picture, including any copy of it the build painted behind it, and
+nothing under it is uncovered. A swinging chain (Appendix C) bends only its own layers; a soft part moves all of them.
+
+Every entry has:
+
+| field | | |
+|---|---|---|
+| `kind` | required | what it is: `ear` (below), or a writer's own kind starting `x_` |
+| `id` | required | unique among the parts; an id as a layer's (`ear_L`, `ear_R`: L is the image's left) |
+| `x-*` | | the writer's own data; readers ignore it |
+
+A reader skips an entry of a kind it does not know. It MAY play none of them: a player without soft parts draws the
+same still picture. `rig.parts` holds at most 32 entries.
+
+### `kind: "ear"`: an upright animal ear
+
+A band along the ear's spine. Its weight is 0 at the root and rises along the spine to 1, full across the width and
+easing to 0 past it. Each place in the band turns about the root by the ear's angle times its weight: a damped spring
+thrown by the head's motion, and now and then a twitch. All lengths are canvas pixels.
+
+| field | range | default | |
+|---|---|---|---|
+| `spine` | 2–16 points | required | `[[x, y], …]`, from the root (where the ear meets the head) toward the tip |
+| `width` | above 0 | required | `[root, tip]`: half the band's width across the spine, at the root and at the tip (linear between). All of the ear, its outline too, belongs inside it; past the ear is background, so a band too wide does no harm, one too narrow bends the ear's outline |
+| `feather` | 0–2 | 0.35 | the soft edge past the width, a share of `width[0]` |
+| `bend` | 0.05–1 | 1 | the share of the spine over which the weight rises to 1. Less turns the upper ear stiffly and bends only its base (a long ear: 0.55) |
+| `hz`, `damp` | 0.5–20, 0–2 | 5, 0.5 | the spring's frequency and damping ratio. (LivLiv Player steps a stiff, heavily damped spring in shorter steps, so every value here settles) |
+| `drive` | 0–20 | 4 | how far the root's acceleration throws it: 1 is a free pendulum of the ear's length |
+| `max_angle` | 0–45 | 12 | the most it turns either way (degrees) |
+| `hang` | 0–1 | 0 | how much it keeps hanging as the head rolls |
+| `twitch` | 0–30 | 7 | a twitch's peak (degrees), outward; 0: it never twitches |
+| `twitch_every` | 1–120 | [5, 10] | `[a, b]`: seconds between twitches, drawn evenly from a to b |
+
+An ear that hangs down, or one on a headband or a hood, is not this kind: its band would take the hair beside it along,
+or move what it is on.
+
+How LivLiv Player plays them (informative: another reader may move an ear its own way). The turn is worked out at each
+place's position at rest and turned with the head's roll, so every layer there moves exactly alike. The spring is
+thrown by the root's acceleration across the ear's axis. A character's ears share one rhythm of twitches, set by the
+first twitching ear's `twitch_every`: each time one of them twitches, or 35 % of the time both, the second 60–90 ms
+later, at `twitch` times 0.8–1.2, outward (away from `anchors.head.cx`), as a push lasting 70 ms that eases in over a
+few frames; the first comes 2–6 s after the model loads. `tuning.parts` scales the throw, the twitches and the hang (the
+hang at most to 1); at 0 every ear is at rest at once. On a model with keyforms the turn comes on top of what the keyforms
+give, the same for every layer at a place, so the layers do not part there any more than the keyforms alone part them.
+
+What a reader does with an entry that is not valid: it skips that entry and plays the others, and the model plays on.
+Not valid: an `id` missing, not an id, or used before; a `spine` other than 2–16 points of two numbers, any point
+outside the canvas by more than its size (x from −width to 2 × width, y alike), or under 4 px long in all; a `width`
+other than two numbers above 0; any other field present and not a number (or two). A field missing or null takes its
+default. A number out of its range is brought into it, and a width past the canvas's longer side counts as that side.
+LivLiv Player plays at most 8 ears. It weighs the fields once, at load, at the lattice points of the layers' meshes in
+each part's reach: at most 262 144 points for all the parts, and at most 4 194 304 times a point is measured against a
+segment of its part's spine; the parts past either are not played.
 
 "Live2D" is a trademark of Live2D Inc.; LivLiv is not affiliated with it.

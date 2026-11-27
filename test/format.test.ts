@@ -150,7 +150,7 @@ test('every feel setting, in the schema under its format-4 name, comes through t
   const schema = JSON.parse(readFileSync(new URL('../schema/livliv-model-v4.json', import.meta.url), 'utf8'))
   const listed = Object.keys(schema.$defs.tuning.properties).sort()
   const runtime: Record<string, string> = { turn: 'turn', nod: 'nod', hair: 'hair', hair_front: 'hairFront', hair_back: 'hairBack', hair_sway: 'hairSway', hair_rest: 'hairRest', blink: 'blink',
-    expr: 'expr', mouth: 'mouth', breath: 'breath', gaze: 'gaze', fringe: 'fringe' }
+    expr: 'expr', mouth: 'mouth', breath: 'breath', gaze: 'gaze', fringe: 'fringe', parts: 'parts' }
   assert.deepEqual(listed, Object.keys(runtime).sort())
   for (const p of Object.values(schema.$defs.tuning.properties) as { minimum: number; maximum: number }[]) assert.deepEqual([p.minimum, p.maximum], [0, 10])
   const src = example()

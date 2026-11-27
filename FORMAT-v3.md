@@ -33,3 +33,7 @@ Fields a v3 file carries that players do not read: `params` (a Cubism-style para
 `rig_template`, `hair_motion`, `rig.front_depth`, `rig.back_depth`, `rig.bust` (the chest spring players use is
 `rig.body.bust`), `anchors.chin_y`, `expressions[].instruction` and `preview`, `profile.class` beyond `input.facing` and
 `input.glasses`, and on some hand-rigged layers `pin`, `field`, `root`, `band`.
+
+Fields added to format 4 later are read from a v3 file under the same names when it has them: the soft parts,
+`rig.parts`, and `tuning.parts` ([FORMAT.md](FORMAT.md#appendix-e-soft-parts-rigparts-43), from LivLiv Player 0.7), as
+livliv.ai writes them into the files it serves.
