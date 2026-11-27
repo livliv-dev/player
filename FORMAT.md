@@ -2,7 +2,7 @@
 
 A LivLiv model is a 2D character cut into layers, with the anchors and rig settings a player needs to move it: head
 turns, blinks, gaze, brows, lip sync, breathing, hair that swings, and expressions. This document describes the package
-that [livliv.ai](https://livliv.ai) exports and that LivLiv Player (`@livliv-dev/player`) and LivLiv Stage read.
+that [livliv.ai](https://livliv.ai) exports and that LivLiv Player (`@livliv-dev/player`) and VTuber Stage read.
 
 - JSON Schema: [`schema/livliv-model-v4.json`](schema/livliv-model-v4.json) (`model.json`) and
   [`schema/livliv-keyforms-v1.json`](schema/livliv-keyforms-v1.json) (`keyforms.json`)
@@ -86,7 +86,7 @@ misspelt field is caught instead of silently doing nothing. The same holds insid
 
 LivLiv writes two licences today: `LicenseRef-LivLiv-Terms` (a character exported by its owner, used as far as the
 owner's plan allows; [livliv.ai/terms](https://livliv.ai/terms)) and `LicenseRef-LivLiv-Samples` (the featured
-characters shipped with LivLiv Stage and LivLiv Player: free with credit, commercial use by individuals included; the full text is
+characters shipped with VTuber Stage and LivLiv Player: free with credit, commercial use by individuals included; the full text is
 `LICENSE.md` beside them).
 
 ### The watermark

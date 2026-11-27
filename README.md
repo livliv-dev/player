@@ -34,7 +34,7 @@
 We want the art of creating characters to belong to everyone.
 
 We're open-sourcing our AI tools for character creation, [the player and its playback protocol](https://github.com/livliv-dev/player),
-and [a stage where your characters can meet an audience](https://github.com/livliv-dev/stage).
+and [a stage where your characters can meet an audience](https://github.com/livliv-dev/vtuber-stage).
 
 Come say hello on [Discord](https://discord.gg/ac5qF36T2H) and follow us on [X (Twitter)](https://x.com/livliv_ai).
 
